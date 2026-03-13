@@ -1,0 +1,96 @@
+Create: 
+	- .github/copilot-instructions.md
+		Always-on or pattern-based	
+		Team standards and default behaviour
+		e.g. Use Python for backend services and React for frontend components.
+	- .github/prompts/*.prompt.md
+		Manual, on-demand slash command	
+		Repeatable one-shot tasks
+		e.g. /release-notes that always follows a fixed changelog format, pulling context from recent commits.
+		You find yourself typing the same complex requests into Copilot Chat repeatedly. "Generate unit tests following our pattern with mocks..." and you have to explain the pattern every single time.
+	-. github/agents/*.agent.md
+		Selected agent mode/persona	
+		Specialised role plus tool control
+		do not use for general coding help or tiny tweaks
+	- .github/skills/<name>/SKILL.md
+		On-demand and auto-discovered	
+		Reusable multi-step workflows with resources
+		do not use for simple standards or hard policy enforcement
+		You need AI agents (not just chat) to understand specialized tasks in your domain. When Coding Agent or other AI agents work on your repository, they should automatically know how to perform QA-specific operations.
+	- .vscode/mcp.json or user mcp.json
+		Tool and data connectivity	
+		Live access to external systems and APIs
+
+Ask mode -> provide it with context of what i want to build
+ask it to create a prompt for me. 
+Create a blank folder
+switch to edit mode -
+switch to plan mode to create a plan of how to build
+switch to agent mode - ask it to build
+
+Run it in a different chat, i.e. run prompt in new chat
+
+
+
+switch to agent mode - ask it to document with comments all of # and specify context
+
+@workspace = ask questions about the project
+e.g. @workspace /explain to summarize code
+
+Custom agent:
+- show example of the Plan agent 
+- ends in .agents.md
+
+- Use Ankita's testing strategy to create an agents.md file
+- Add this agent to VS code using Create custom agent via UI
+
+
+how to give it tools?
+
+Configure tools ->
+- go to marketplace, type in @MCP
+- install an MCP server, like github
+- click dropdown to see functionality it provides
+
+
+
+copilot-instructions:
+- Framework-wide coding standards
+- Architecture patterns everyone should follow
+- Technology stack preferences
+- Security requirements
+
+Prompt files:
+- Repetitive tasks with specific patterns
+- Documentation generation
+- Code review checklists
+- Test generation workflows
+
+Skills:
+- Teaching AI agents domain-specific tasks
+- Multi-step workflows with validation
+- Tasks requiring specific tools or commands
+- Procedures that benefit from working examples
+
+
+Agent:
+- Implementing defined issues from backlog
+- Adding test coverage
+- Refactoring existing code
+- Updating documentation
+- Fixing bugs with clear reproduction steps
+
+Agents use:
+Custom Instructions: Coding Agent reads these to understand your coding standards
+Agent Skills: Coding Agent loads relevant skills to perform specialized tasks
+Prompt Files: You don’t directly use these with Coding Agent (they’re for you in Chat)
+
+
+Start Here: What are you trying to accomplish?
+1. "I want ALL code suggestions to follow our framework patterns" → Custom Instructions (.github/copilot-instructions.md)
+
+2. "I keep asking Copilot Chat to do the same task repeatedly" → Prompt File (.github/prompts/task-name.prompt.md)
+
+3. "I want AI agents to know how to perform a specialized QA task" → Agent Skill (.github/skills/skill-name/SKILL.md)
+
+4. "I have a complete task that needs implementation" → Coding Agent (assign GitHub issue to @copilot)
