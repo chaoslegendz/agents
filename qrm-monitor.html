@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QRM Orchestration Monitor</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { background: #060d1a; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #0b1422; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    @keyframes shimmer {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+    @keyframes progress-slide {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(360%); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-in { animation: fadeIn 0.2s ease forwards; }
+    button { font-family: inherit; transition: opacity 0.12s; }
+    button:hover { opacity: 0.82; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    // ── MOCK DATA ──────────────────────────────────────────────────────────────
+
+    const PIPELINES = [
+      {
+        id: "qrm.pipeline.eod_risk",
+        name: "QRM End-of-Day Risk",
+        owner: "qrm_platform",
+        tags: ["tier1", "regulatory", "FRTB"],
+        slaDeadline: "21:30",
+        slaStatus: "ON_TRACK",
+        bufferMinutes: 38,
+        businessDate: "2026-04-14",
+        lastRun: { runId: "run-4821", status: "RUNNING", startTime: "18:02:11", durationSeconds: 5421 },
+        steps: { complete: 4, running: 1, pending: 3, failed: 0 },
+        estimatedCompletion: "20:47",
+      },
+      {
+        id: "qrm.pipeline.var_calc",
+        name: "VaR Calculation",
+        owner: "market_risk",
+        tags: ["tier1", "basel", "daily"],
+        slaDeadline: "22:00",
+        slaStatus: "AT_RISK",
+        bufferMinutes: 12,
+        businessDate: "2026-04-14",
+        lastRun: { runId: "run-4822", status: "RUNNING", startTime: "18:45:00", durationSeconds: 3610 },
+        steps: { complete: 2, running: 1, pending: 4, failed: 1 },
+        estimatedCompletion: "21:51",
+      },
+      {
+        id: "qrm.pipeline.sa_ccr",
+        name: "SA-CCR Exposure",
+        owner: "counterparty_risk",
+        tags: ["tier1", "regulatory", "SA-CCR"],
+        slaDeadline: "20:00",
+        slaStatus: "MET",
+        bufferMinutes: 0,
+        businessDate: "2026-04-14",
+        lastRun: { runId: "run-4818", status: "SUCCESS", startTime: "16:10:00", durationSeconds: 6823 },
+        steps: { complete: 7, running: 0, pending: 0, failed: 0 },
+        estimatedCompletion: "18:04",
+      },
+      {
+        id: "qrm.pipeline.cva_run",
+        name: "CVA / BA-CVA",
+        owner: "xva_desk",
+        tags: ["tier2", "CVA", "OTC"],
+        slaDeadline: "23:00",
+        slaStatus: "BREACHED",
+        bufferMinutes: -18,
+        businessDate: "2026-04-14",
+        lastRun: { runId: "run-4820", status: "FAILED", startTime: "17:30:00", durationSeconds: 2910 },
+        steps: { complete: 3, running: 0, pending: 2, failed: 2 },
+        estimatedCompletion: null,
+      },
+      {
+        id: "qrm.pipeline.bcbs239_lineage",
+        name: "BCBS 239 Lineage",
+        owner: "data_governance",
+        tags: ["tier2", "BCBS239", "weekly"],
+        slaDeadline: "09:00",
+        slaStatus: "MET",
+        bufferMinutes: 0,
+        businessDate: "2026-04-14",
+        lastRun: { runId: "run-4810", status: "SUCCESS", startTime: "07:01:00", durationSeconds: 3240 },
+        steps: { complete: 5, running: 0, pending: 0, failed: 0 },
+        estimatedCompletion: "07:55",
+      },
+    ];
+
+    const RUN_DETAILS = {
+      "qrm.pipeline.eod_risk": {
+        runId: "run-4821", pipelineName: "QRM End-of-Day Risk",
+        businessDate: "2026-04-14", status: "RUNNING",
+        triggeredBy: "sp-scheduler-prod", triggerType: "SCHEDULE", gitSha: "a3f9c21",
+        startTime: "18:02:11",
+        steps: [
+          { stepId: "extract_positions", name: "Extract Risk Positions", executor: "DATABRICKS", jobId: "dbs-job-2241", status: "SUCCEEDED", startTime: "18:02:15", endTime: "18:07:43", durationSeconds: 328, rowCount: 145230, bytesWritten: 48291023, retryAttempts: 0, depends: [] },
+          { stepId: "extract_mktdata",   name: "Extract Market Data",    executor: "QRM",        jobId: "qrm-etl-in-0091", status: "SUCCEEDED", startTime: "18:02:15", endTime: "18:09:01", durationSeconds: 406, rowCount: 892400, bytesWritten: 112048192, retryAttempts: 1, depends: [] },
+          { stepId: "validate_positions",name: "DQ: Positions Gate",     executor: "DATABRICKS", jobId: "dbs-job-2242", status: "SUCCEEDED", startTime: "18:07:45", endTime: "18:12:10", durationSeconds: 265, rowCount: 145230, bytesWritten: null, retryAttempts: 0, depends: ["extract_positions"] },
+          { stepId: "validate_mktdata",  name: "DQ: Market Data Gate",   executor: "DATABRICKS", jobId: "dbs-job-2243", status: "SUCCEEDED", startTime: "18:09:03", endTime: "18:14:55", durationSeconds: 352, rowCount: 892400, bytesWritten: null, retryAttempts: 0, depends: ["extract_mktdata"] },
+          { stepId: "qrm_compute",       name: "QRM Risk Compute",       executor: "QRM",        jobId: "qrm-compute-0441", status: "RUNNING", startTime: "18:15:02", endTime: null, durationSeconds: null, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["validate_positions","validate_mktdata"] },
+          { stepId: "load_results",      name: "Load to Stage 3",        executor: "AUTOSYS",    jobId: "aut-load-risk-99", status: "PENDING", startTime: null, endTime: null, durationSeconds: null, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["qrm_compute"] },
+          { stepId: "publish_pnl",       name: "Publish P&L Report",     executor: "AUTOSYS",    jobId: "aut-pub-pnl-12",  status: "PENDING", startTime: null, endTime: null, durationSeconds: null, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["load_results"] },
+          { stepId: "sla_signal",        name: "SLA Completion Signal",  executor: "AUTOSYS",    jobId: "aut-sla-sig-04",  status: "PENDING", startTime: null, endTime: null, durationSeconds: null, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["publish_pnl"] },
+        ],
+      },
+      "qrm.pipeline.var_calc": {
+        runId: "run-4822", pipelineName: "VaR Calculation",
+        businessDate: "2026-04-14", status: "RUNNING",
+        triggeredBy: "sp-scheduler-prod", triggerType: "SCHEDULE", gitSha: "b91e3d4",
+        startTime: "18:45:00",
+        steps: [
+          { stepId: "fetch_scenarios",   name: "Fetch Scenario Sets",    executor: "QRM",        jobId: "qrm-scen-0120",   status: "SUCCEEDED", startTime: "18:45:05", endTime: "18:52:44", durationSeconds: 459, rowCount: 500000, bytesWritten: 82000000, retryAttempts: 0, depends: [] },
+          { stepId: "load_positions",    name: "Load Positions",         executor: "DATABRICKS", jobId: "dbs-job-3010",    status: "SUCCEEDED", startTime: "18:45:05", endTime: "18:49:21", durationSeconds: 256, rowCount: 98200,  bytesWritten: 22000000, retryAttempts: 0, depends: [] },
+          { stepId: "dq_check",          name: "DQ Gate",                executor: "DATABRICKS", jobId: "dbs-job-3011",    status: "FAILED",    startTime: "18:49:25", endTime: "18:51:10", durationSeconds: 105, rowCount: null, bytesWritten: null, retryAttempts: 2, depends: ["load_positions"], errorCode: "DQ_THRESHOLD_BREACH", errorMsg: "Null rate count 4.2% exceeds threshold 2%" },
+          { stepId: "var_calc",          name: "VaR Calculation",        executor: "QRM",        jobId: "qrm-var-0310",    status: "RUNNING",   startTime: "18:53:00", endTime: null, durationSeconds: null, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["fetch_scenarios"] },
+          { stepId: "es_calc",           name: "Expected Shortfall",     executor: "QRM",        jobId: "qrm-es-0311",     status: "PENDING",   startTime: null, endTime: null, durationSeconds: null, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["var_calc"] },
+          { stepId: "publish_var",       name: "Publish VaR to MR DB",   executor: "AUTOSYS",    jobId: "aut-pub-var-07",  status: "PENDING",   startTime: null, endTime: null, durationSeconds: null, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["es_calc"] },
+          { stepId: "breach_check",      name: "Limit Breach Check",     executor: "AUTOSYS",    jobId: "aut-breach-08",   status: "PENDING",   startTime: null, endTime: null, durationSeconds: null, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["publish_var"] },
+        ],
+      },
+      "qrm.pipeline.sa_ccr": {
+        runId: "run-4818", pipelineName: "SA-CCR Exposure",
+        businessDate: "2026-04-14", status: "SUCCESS",
+        triggeredBy: "sp-scheduler-prod", triggerType: "SCHEDULE", gitSha: "c44d812",
+        startTime: "16:10:00",
+        steps: [
+          { stepId: "extract_trades",  name: "Extract OTC Trades",      executor: "QRM",        jobId: "qrm-etl-trades-01", status: "SUCCEEDED", startTime: "16:10:05", endTime: "16:18:40", durationSeconds: 515, rowCount: 320000, bytesWritten: 95000000, retryAttempts: 0, depends: [] },
+          { stepId: "extract_collat",  name: "Extract Collateral",      executor: "DATABRICKS", jobId: "dbs-job-1100",      status: "SUCCEEDED", startTime: "16:10:05", endTime: "16:14:22", durationSeconds: 257, rowCount: 45000,  bytesWritten: 8200000, retryAttempts: 0, depends: [] },
+          { stepId: "dq_trades",       name: "DQ: Trade Gate",          executor: "DATABRICKS", jobId: "dbs-job-1101",      status: "SUCCEEDED", startTime: "16:18:42", endTime: "16:22:15", durationSeconds: 213, rowCount: 320000, bytesWritten: null, retryAttempts: 0, depends: ["extract_trades"] },
+          { stepId: "dq_collat",       name: "DQ: Collateral Gate",     executor: "DATABRICKS", jobId: "dbs-job-1102",      status: "SUCCEEDED", startTime: "16:14:25", endTime: "16:17:10", durationSeconds: 165, rowCount: 45000, bytesWritten: null, retryAttempts: 0, depends: ["extract_collat"] },
+          { stepId: "saccr_compute",   name: "SA-CCR EAD Compute",      executor: "QRM",        jobId: "qrm-saccr-0220",    status: "SUCCEEDED", startTime: "16:22:20", endTime: "17:05:44", durationSeconds: 2604, rowCount: 320000, bytesWritten: 210000000, retryAttempts: 0, depends: ["dq_trades","dq_collat"] },
+          { stepId: "load_ead",        name: "Load EAD to Stage 3",     executor: "AUTOSYS",    jobId: "aut-ead-load-03",   status: "SUCCEEDED", startTime: "17:05:50", endTime: "17:12:20", durationSeconds: 390, rowCount: 320000, bytesWritten: null, retryAttempts: 0, depends: ["saccr_compute"] },
+          { stepId: "rwa_roll",        name: "RWA Roll-up",             executor: "AUTOSYS",    jobId: "aut-rwa-05",        status: "SUCCEEDED", startTime: "17:12:25", endTime: "17:18:04", durationSeconds: 339, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["load_ead"] },
+        ],
+      },
+      "qrm.pipeline.cva_run": {
+        runId: "run-4820", pipelineName: "CVA / BA-CVA",
+        businessDate: "2026-04-14", status: "FAILED",
+        triggeredBy: "sp-scheduler-prod", triggerType: "SCHEDULE", gitSha: "d72b99f",
+        startTime: "17:30:00",
+        steps: [
+          { stepId: "fetch_otc",       name: "Extract OTC Book",        executor: "QRM",        jobId: "qrm-cva-etl-01",  status: "SUCCEEDED", startTime: "17:30:05", endTime: "17:37:30", durationSeconds: 445, rowCount: 210000, bytesWritten: 72000000, retryAttempts: 0, depends: [] },
+          { stepId: "fetch_credit",    name: "Extract Credit Spreads",  executor: "DATABRICKS", jobId: "dbs-job-4200",    status: "SUCCEEDED", startTime: "17:30:05", endTime: "17:33:18", durationSeconds: 193, rowCount: 14000,  bytesWritten: 5100000, retryAttempts: 0, depends: [] },
+          { stepId: "dq_otc",         name: "DQ: OTC Book Gate",       executor: "DATABRICKS", jobId: "dbs-job-4201",    status: "SUCCEEDED", startTime: "17:37:33", endTime: "17:40:50", durationSeconds: 197, rowCount: 210000, bytesWritten: null, retryAttempts: 0, depends: ["fetch_otc"] },
+          { stepId: "bacva_compute",   name: "BA-CVA Compute",          executor: "QRM",        jobId: "qrm-bacva-0310",  status: "FAILED",    startTime: "17:41:00", endTime: "17:51:02", durationSeconds: 602, rowCount: null, bytesWritten: null, retryAttempts: 3, depends: ["dq_otc","fetch_credit"], errorCode: "QRM_API_ERROR", errorMsg: "QRM endpoint timeout after 3 retries: connect ECONNREFUSED qrm-prod:8443" },
+          { stepId: "sacva_compute",   name: "SA-CVA Compute",          executor: "QRM",        jobId: "qrm-sacva-0311",  status: "FAILED",    startTime: "17:41:00", endTime: "17:48:55", durationSeconds: 475, rowCount: null, bytesWritten: null, retryAttempts: 3, depends: ["dq_otc","fetch_credit"], errorCode: "QRM_API_ERROR", errorMsg: "QRM endpoint timeout after 3 retries: connect ECONNREFUSED qrm-prod:8443" },
+          { stepId: "publish_cva",     name: "Publish CVA to Canoe",    executor: "AUTOSYS",    jobId: "aut-cva-pub-09",  status: "PENDING",   startTime: null, endTime: null, durationSeconds: null, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["bacva_compute","sacva_compute"] },
+          { stepId: "pillar3_signal",  name: "Pillar 3 Feed",           executor: "AUTOSYS",    jobId: "aut-p3-feed-10",  status: "PENDING",   startTime: null, endTime: null, durationSeconds: null, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["publish_cva"] },
+        ],
+      },
+      "qrm.pipeline.bcbs239_lineage": {
+        runId: "run-4810", pipelineName: "BCBS 239 Lineage",
+        businessDate: "2026-04-14", status: "SUCCESS",
+        triggeredBy: "sp-scheduler-weekly", triggerType: "SCHEDULE", gitSha: "e88a331",
+        startTime: "07:01:00",
+        steps: [
+          { stepId: "scan_adls",       name: "Scan ADLS Datasets",      executor: "DATABRICKS", jobId: "dbs-job-5100",   status: "SUCCEEDED", startTime: "07:01:05", endTime: "07:11:30", durationSeconds: 625, rowCount: 8200, bytesWritten: null, retryAttempts: 0, depends: [] },
+          { stepId: "build_lineage",   name: "Build Lineage Graph",      executor: "DATABRICKS", jobId: "dbs-job-5101",   status: "SUCCEEDED", startTime: "07:11:32", endTime: "07:28:10", durationSeconds: 998, rowCount: 8200, bytesWritten: 14000000, retryAttempts: 0, depends: ["scan_adls"] },
+          { stepId: "validate_rcdii",  name: "RCDII Completeness Check", executor: "DATABRICKS", jobId: "dbs-job-5102",   status: "SUCCEEDED", startTime: "07:28:12", endTime: "07:39:40", durationSeconds: 688, rowCount: 8200, bytesWritten: null, retryAttempts: 0, depends: ["build_lineage"] },
+          { stepId: "publish_catalog", name: "Publish to Unity Catalog",  executor: "DATABRICKS", jobId: "dbs-job-5103",   status: "SUCCEEDED", startTime: "07:39:42", endTime: "07:48:55", durationSeconds: 553, rowCount: 8200, bytesWritten: 14000000, retryAttempts: 0, depends: ["validate_rcdii"] },
+          { stepId: "notify_gov",      name: "Governance Notification",   executor: "AUTOSYS",    jobId: "aut-gov-not-01", status: "SUCCEEDED", startTime: "07:48:58", endTime: "07:50:02", durationSeconds: 64, rowCount: null, bytesWritten: null, retryAttempts: 0, depends: ["publish_catalog"] },
+        ],
+      },
+    };
+
+    // ── CONSTANTS ──────────────────────────────────────────────────────────────
+
+    const STATUS_CFG = {
+      SUCCEEDED: { color: "#22c55e", bg: "rgba(34,197,94,0.12)",   label: "SUCCESS", pulse: false },
+      SUCCESS:   { color: "#22c55e", bg: "rgba(34,197,94,0.12)",   label: "SUCCESS", pulse: false },
+      RUNNING:   { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",  label: "RUNNING", pulse: true  },
+      FAILED:    { color: "#ef4444", bg: "rgba(239,68,68,0.12)",   label: "FAILED",  pulse: false },
+      PENDING:   { color: "#475569", bg: "rgba(71,85,105,0.12)",   label: "PENDING", pulse: false },
+    };
+
+    const SLA_CFG = {
+      ON_TRACK: { color: "#22c55e", label: "ON TRACK" },
+      AT_RISK:  { color: "#f59e0b", label: "AT RISK"  },
+      MET:      { color: "#3b82f6", label: "MET"      },
+      BREACHED: { color: "#ef4444", label: "BREACHED" },
+    };
+
+    const EXEC_CFG = {
+      QRM:        { color: "#a78bfa", bg: "rgba(167,139,250,0.15)" },
+      DATABRICKS: { color: "#fb923c", bg: "rgba(251,146,60,0.15)"  },
+      AUTOSYS:    { color: "#38bdf8", bg: "rgba(56,189,248,0.15)"  },
+    };
+
+    // ── HELPERS ────────────────────────────────────────────────────────────────
+
+    const fmtDuration = s => {
+      if (!s && s !== 0) return "—";
+      if (s < 60) return `${s}s`;
+      if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`;
+      return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+    };
+    const fmtBytes = b => {
+      if (!b) return "—";
+      if (b < 1048576)    return `${(b/1024).toFixed(1)} KB`;
+      if (b < 1073741824) return `${(b/1048576).toFixed(1)} MB`;
+      return `${(b/1073741824).toFixed(2)} GB`;
+    };
+    const fmtRows = n => {
+      if (!n) return "—";
+      return n >= 1e6 ? `${(n/1e6).toFixed(2)}M` : n >= 1000 ? `${(n/1000).toFixed(1)}K` : String(n);
+    };
+    const nowStr = () => new Date().toLocaleTimeString("en-CA", { hour12: false });
+
+    // ── UI ATOMS ───────────────────────────────────────────────────────────────
+
+    function StatusBadge({ status, small }) {
+      const cfg = STATUS_CFG[status] || STATUS_CFG.PENDING;
+      return (
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 5,
+          padding: small ? "2px 6px" : "3px 10px",
+          borderRadius: 3, fontSize: small ? 10 : 11, fontWeight: 700,
+          letterSpacing: "0.07em", fontFamily: "'JetBrains Mono', monospace",
+          color: cfg.color, background: cfg.bg,
+          border: `1px solid ${cfg.color}33`, whiteSpace: "nowrap",
+        }}>
+          <span style={{
+            width: small ? 5 : 6, height: small ? 5 : 6, borderRadius: "50%",
+            background: cfg.color, flexShrink: 0,
+            animation: cfg.pulse ? "pulse-dot 1.4s ease-in-out infinite" : "none",
+          }} />
+          {cfg.label}
+        </span>
+      );
+    }
+
+    function ExecBadge({ executor }) {
+      const cfg = EXEC_CFG[executor] || { color: "#94a3b8", bg: "rgba(148,163,184,0.15)" };
+      return (
+        <span style={{
+          padding: "2px 7px", borderRadius: 3, fontSize: 10, fontWeight: 700,
+          letterSpacing: "0.07em", fontFamily: "'JetBrains Mono', monospace",
+          color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.color}33`,
+          whiteSpace: "nowrap",
+        }}>{executor}</span>
+      );
+    }
+
+    function SlaBadge({ status }) {
+      const cfg = SLA_CFG[status] || SLA_CFG.ON_TRACK;
+      return (
+        <span style={{
+          padding: "2px 8px", borderRadius: 2, fontSize: 10, fontWeight: 800,
+          letterSpacing: "0.1em", fontFamily: "'JetBrains Mono', monospace",
+          color: cfg.color, border: `1px solid ${cfg.color}55`,
+        }}>{cfg.label}</span>
+      );
+    }
+
+    function StepBar({ steps }) {
+      const total = steps.complete + steps.running + steps.pending + steps.failed;
+      if (!total) return null;
+      return (
+        <div style={{ display: "flex", gap: 1, height: 4, width: "100%", borderRadius: 2, overflow: "hidden" }}>
+          {steps.failed   > 0 && <div style={{ flex: steps.failed,   background: "#ef4444" }} />}
+          {steps.complete > 0 && <div style={{ flex: steps.complete, background: "#22c55e" }} />}
+          {steps.running  > 0 && <div style={{ flex: steps.running,  background: "#f59e0b", animation: "shimmer 1.5s ease-in-out infinite" }} />}
+          {steps.pending  > 0 && <div style={{ flex: steps.pending,  background: "#1e293b" }} />}
+        </div>
+      );
+    }
+
+    // ── PIPELINE CARD ──────────────────────────────────────────────────────────
+
+    function PipelineCard({ pipeline, selected, onClick, role }) {
+      return (
+        <div onClick={onClick} style={{
+          background: selected ? "rgba(99,102,241,0.08)" : "rgba(248,250,252,0.015)",
+          border: selected ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(248,250,252,0.07)",
+          borderRadius: 6, padding: "13px 14px", cursor: "pointer",
+          transition: "all 0.15s ease",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 9 }}>
+            <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9", marginBottom: 3,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {pipeline.name}
+              </div>
+              <div style={{ fontSize: 9, color: "#475569", fontFamily: "'JetBrains Mono', monospace",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {pipeline.id}
+              </div>
+            </div>
+            <StatusBadge status={pipeline.lastRun.status} small />
+          </div>
+
+          <StepBar steps={pipeline.steps} />
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 9 }}>
+            <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+              <SlaBadge status={pipeline.slaStatus} />
+              {pipeline.slaStatus === "ON_TRACK" && pipeline.bufferMinutes > 0 &&
+                <span style={{ fontSize: 10, color: "#64748b" }}>+{pipeline.bufferMinutes}m</span>}
+              {pipeline.slaStatus === "BREACHED" &&
+                <span style={{ fontSize: 10, color: "#ef4444" }}>{Math.abs(pipeline.bufferMinutes)}m over</span>}
+              {pipeline.slaStatus === "AT_RISK" &&
+                <span style={{ fontSize: 10, color: "#f59e0b" }}>{pipeline.bufferMinutes}m left</span>}
+            </div>
+            <span style={{ fontSize: 10, color: "#475569", fontFamily: "'JetBrains Mono', monospace" }}>
+              SLA {pipeline.slaDeadline}
+            </span>
+          </div>
+
+          {role !== "BUSINESS" && (
+            <div style={{ marginTop: 8, fontSize: 10, color: "#475569" }}>
+              ✓{pipeline.steps.complete} ▶{pipeline.steps.running} ◌{pipeline.steps.pending}
+              {pipeline.steps.failed > 0 &&
+                <span style={{ color: "#ef4444" }}> ✗{pipeline.steps.failed}</span>}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
+            {pipeline.tags.map(t => (
+              <span key={t} style={{
+                fontSize: 9, color: "#475569", padding: "1px 5px",
+                border: "1px solid rgba(248,250,252,0.07)", borderRadius: 2,
+                fontFamily: "'JetBrains Mono', monospace",
+              }}>{t}</span>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ── SLA STRIP ─────────────────────────────────────────────────────────────
+
+    function SlaSummaryStrip({ pipelines }) {
+      const counts = { MET: 0, ON_TRACK: 0, AT_RISK: 0, BREACHED: 0 };
+      pipelines.forEach(p => counts[p.slaStatus]++);
+      return (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+          {[
+            { key: "MET",      label: "Met",      color: "#3b82f6" },
+            { key: "ON_TRACK", label: "On Track", color: "#22c55e" },
+            { key: "AT_RISK",  label: "At Risk",  color: "#f59e0b" },
+            { key: "BREACHED", label: "Breached", color: "#ef4444" },
+          ].map(({ key, label, color }) => (
+            <div key={key} style={{
+              padding: "8px 4px", borderRadius: 5,
+              background: "rgba(248,250,252,0.025)",
+              border: `1px solid ${color}33`,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+            }}>
+              <span style={{ fontSize: 18, fontWeight: 800, color, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>
+                {counts[key]}
+              </span>
+              <span style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.06em" }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ── DAG FLOW VIEW ─────────────────────────────────────────────────────────
+
+    function DagFlowView({ steps, onSelectStep, selectedStep }) {
+      const levels = {};
+      const assignLevel = (id, visited = new Set()) => {
+        if (levels[id] !== undefined) return levels[id];
+        if (visited.has(id)) return 0;
+        visited.add(id);
+        const step = steps.find(s => s.stepId === id);
+        if (!step || step.depends.length === 0) { levels[id] = 0; return 0; }
+        const max = Math.max(...step.depends.map(d => assignLevel(d, new Set(visited))));
+        levels[id] = max + 1;
+        return levels[id];
+      };
+      steps.forEach(s => assignLevel(s.stepId));
+
+      const maxLevel = Math.max(0, ...Object.values(levels));
+      const cols = Array.from({ length: maxLevel + 1 }, (_, i) =>
+        steps.filter(s => levels[s.stepId] === i)
+      );
+
+      const NODE_W = 152, NODE_H = 70, COL_GAP = 60, ROW_GAP = 12;
+      const nodePos = {};
+
+      const maxColH = Math.max(...cols.map(col =>
+        col.length * NODE_H + Math.max(0, col.length - 1) * ROW_GAP
+      ));
+
+      cols.forEach((col, ci) => {
+        const colH = col.length * NODE_H + Math.max(0, col.length - 1) * ROW_GAP;
+        const offset = (maxColH - colH) / 2;
+        col.forEach((step, ri) => {
+          nodePos[step.stepId] = {
+            x: ci * (NODE_W + COL_GAP),
+            y: offset + ri * (NODE_H + ROW_GAP),
+          };
+        });
+      });
+
+      const totalW = (maxLevel + 1) * (NODE_W + COL_GAP) - COL_GAP + 2;
+      const totalH = maxColH + 2;
+
+      const edges = [];
+      steps.forEach(step => {
+        step.depends.forEach(dep => {
+          const from = nodePos[dep];
+          const to = nodePos[step.stepId];
+          if (from && to) {
+            const x1 = from.x + NODE_W, y1 = from.y + NODE_H / 2;
+            const x2 = to.x,            y2 = to.y  + NODE_H / 2;
+            const mx = (x1 + x2) / 2;
+            const cfg = STATUS_CFG[step.status] || STATUS_CFG.PENDING;
+            edges.push({ dep, id: step.stepId, x1, y1, x2, y2, mx, color: cfg.color, pending: step.status === "PENDING" });
+          }
+        });
+      });
+
+      return (
+        <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+          <div style={{ position: "relative", width: totalW, height: totalH, minHeight: 100 }}>
+            <svg style={{ position: "absolute", inset: 0, width: totalW, height: totalH, overflow: "visible", pointerEvents: "none" }}>
+              <defs>
+                <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                  <path d="M0,0 L0,6 L6,3 z" fill="#475569" />
+                </marker>
+              </defs>
+              {edges.map((e, i) => (
+                <path key={i}
+                  d={`M ${e.x1} ${e.y1} C ${e.mx} ${e.y1}, ${e.mx} ${e.y2}, ${e.x2} ${e.y2}`}
+                  fill="none" stroke={e.color} strokeWidth={1.5}
+                  strokeOpacity={e.pending ? 0.2 : 0.4}
+                  strokeDasharray={e.pending ? "5 3" : "none"}
+                  markerEnd="url(#arr)"
+                />
+              ))}
+            </svg>
+
+            {steps.map(step => {
+              const pos = nodePos[step.stepId];
+              if (!pos) return null;
+              const cfg = STATUS_CFG[step.status] || STATUS_CFG.PENDING;
+              const ecfg = EXEC_CFG[step.executor] || {};
+              const isSel = selectedStep?.stepId === step.stepId;
+              return (
+                <div key={step.stepId} onClick={() => onSelectStep(isSel ? null : step)} style={{
+                  position: "absolute", left: pos.x, top: pos.y,
+                  width: NODE_W, height: NODE_H,
+                  background: isSel ? "rgba(99,102,241,0.18)" : "#0b1422",
+                  border: isSel ? "1.5px solid #6366f1" : `1.5px solid ${cfg.color}44`,
+                  borderRadius: 6, padding: "9px 11px", cursor: "pointer",
+                  boxSizing: "border-box", transition: "all 0.15s",
+                  boxShadow: isSel ? "0 0 16px rgba(99,102,241,0.3)" : step.status === "FAILED" ? "0 0 12px rgba(239,68,68,0.2)" : "none",
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#e2e8f0", marginBottom: 6,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {step.name}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <ExecBadge executor={step.executor} />
+                    <StatusBadge status={step.status} small />
+                  </div>
+                  {step.status === "RUNNING" && (
+                    <div style={{ marginTop: 6, height: 2, background: "#1e293b", borderRadius: 1, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: "35%", background: "#f59e0b",
+                        animation: "progress-slide 1.8s ease-in-out infinite" }} />
+                    </div>
+                  )}
+                  {step.status === "SUCCEEDED" && step.durationSeconds && (
+                    <div style={{ marginTop: 4, fontSize: 9, color: "#475569", fontFamily: "'JetBrains Mono', monospace" }}>
+                      ✓ {fmtDuration(step.durationSeconds)}
+                    </div>
+                  )}
+                  {step.status === "FAILED" && (
+                    <div style={{ marginTop: 4, fontSize: 9, color: "#ef4444", fontFamily: "'JetBrains Mono', monospace",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      ✗ {step.errorCode || "FAILED"}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ── STEP LIST VIEW ────────────────────────────────────────────────────────
+
+    function StepListView({ steps, onSelect, selected, role }) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {steps.map((step, i) => {
+            const cfg = STATUS_CFG[step.status] || STATUS_CFG.PENDING;
+            const isSel = selected?.stepId === step.stepId;
+            return (
+              <div key={step.stepId} onClick={() => onSelect(isSel ? null : step)} style={{
+                display: "grid",
+                gridTemplateColumns: "28px 1fr auto auto",
+                gap: "0 12px", alignItems: "center",
+                padding: "9px 12px",
+                background: isSel ? "rgba(99,102,241,0.1)" : "rgba(248,250,252,0.02)",
+                border: isSel ? "1px solid rgba(99,102,241,0.4)" : "1px solid rgba(248,250,252,0.05)",
+                borderRadius: 5, cursor: "pointer", transition: "all 0.12s",
+                boxShadow: step.status === "FAILED" ? "0 0 8px rgba(239,68,68,0.15)" : "none",
+              }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                  <span style={{
+                    width: 22, height: 22, borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: cfg.bg, border: `1.5px solid ${cfg.color}55`,
+                    fontSize: 9, fontWeight: 700, color: cfg.color,
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}>{i + 1}</span>
+                  {i < steps.length - 1 &&
+                    <div style={{ width: 1, height: 8, background: "rgba(248,250,252,0.07)" }} />}
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0" }}>{step.name}</div>
+                  <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center", flexWrap: "wrap" }}>
+                    <ExecBadge executor={step.executor} />
+                    {role !== "BUSINESS" &&
+                      <span style={{ fontSize: 10, color: "#475569", fontFamily: "'JetBrains Mono', monospace" }}>
+                        {step.jobId}
+                      </span>}
+                    {step.status === "FAILED" && step.errorCode && (
+                      <span style={{ fontSize: 10, color: "#ef4444", fontFamily: "'JetBrains Mono', monospace" }}>
+                        {step.errorCode}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", fontFamily: "'JetBrains Mono', monospace" }}>
+                  {step.durationSeconds
+                    ? <span style={{ fontSize: 11, color: "#64748b" }}>{fmtDuration(step.durationSeconds)}</span>
+                    : step.status === "RUNNING"
+                      ? <span style={{ fontSize: 10, color: "#f59e0b", animation: "pulse-dot 1.4s ease-in-out infinite" }}>running…</span>
+                      : null}
+                </div>
+                <StatusBadge status={step.status} small />
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ── STEP DETAIL PANEL ─────────────────────────────────────────────────────
+
+    function StepDetailPanel({ step, onClose, role }) {
+      const [confirmAction, setConfirmAction] = useState(null);
+      const [actionDone, setActionDone] = useState(null);
+
+      const handleAction = (action) => {
+        if (confirmAction === action) {
+          setActionDone(action);
+          setConfirmAction(null);
+          setTimeout(() => setActionDone(null), 3000);
+        } else {
+          setConfirmAction(action);
+          setTimeout(() => setConfirmAction(null), 3000);
+        }
+      };
+
+      const rows = [
+        { label: "Step ID",    value: step.stepId },
+        { label: "Job ID",     value: step.jobId || "—" },
+        { label: "Executor",   value: <ExecBadge executor={step.executor} /> },
+        { label: "Status",     value: <StatusBadge status={step.status} /> },
+        { label: "Start Time", value: step.startTime || "—" },
+        { label: "End Time",   value: step.endTime || "—" },
+        { label: "Duration",   value: fmtDuration(step.durationSeconds) },
+        { label: "Retries",    value: step.retryAttempts ?? 0 },
+        { label: "Row Count",  value: fmtRows(step.rowCount) },
+        { label: "Bytes Out",  value: fmtBytes(step.bytesWritten) },
+        { label: "Depends On", value: step.depends.length > 0 ? step.depends.join(", ") : "None (root)" },
+      ];
+
+      return (
+        <div className="fade-in" style={{
+          background: "#0b1422", border: "1px solid rgba(248,250,252,0.1)",
+          borderRadius: 8, padding: "16px 16px",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9" }}>{step.name}</div>
+              <div style={{ fontSize: 9, color: "#475569", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{step.stepId}</div>
+            </div>
+            <button onClick={onClose} style={{
+              background: "none", border: "none", color: "#64748b",
+              fontSize: 16, cursor: "pointer", padding: "0 4px", lineHeight: 1,
+            }}>✕</button>
+          </div>
+
+          {step.status === "FAILED" && step.errorMsg && (
+            <div style={{
+              background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)",
+              borderRadius: 5, padding: "8px 10px", marginBottom: 10,
+              fontSize: 10, color: "#fca5a5", fontFamily: "'JetBrains Mono', monospace",
+              lineHeight: 1.5,
+            }}>
+              <div style={{ color: "#ef4444", fontWeight: 700, marginBottom: 3 }}>{step.errorCode}</div>
+              {step.errorMsg}
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {rows.map(row => (
+              <div key={row.label} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "5px 8px", background: "rgba(248,250,252,0.025)", borderRadius: 3,
+              }}>
+                <span style={{ fontSize: 10, color: "#64748b", fontFamily: "'JetBrains Mono', monospace" }}>
+                  {row.label}
+                </span>
+                <span style={{ fontSize: 10, color: "#cbd5e1", fontFamily: "'JetBrains Mono', monospace", textAlign: "right" }}>
+                  {row.value}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {role === "L3" && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 7 }}>
+                EXECUTOR LOG
+              </div>
+              <div style={{
+                background: "#060d1a", border: "1px solid rgba(248,250,252,0.06)",
+                borderRadius: 4, padding: "10px 11px",
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10, color: "#64748b", lineHeight: 1.9,
+                maxHeight: 160, overflowY: "auto",
+              }}>
+                {step.status === "FAILED" ? (
+                  <>
+                    <div style={{ color: "#22c55e" }}>[{step.startTime}] Submitted to {step.executor}</div>
+                    <div>[+00:15] Job registered: {step.jobId}</div>
+                    <div>[+00:32] Poll #1 → QUEUED</div>
+                    <div>[+01:05] Poll #2 → RUNNING</div>
+                    <div style={{ color: "#f59e0b" }}>[+02:30] Poll #3 → RUNNING (timeout warning)</div>
+                    <div style={{ color: "#ef4444" }}>[+03:00] Poll #4 → TIMEOUT</div>
+                    <div style={{ color: "#ef4444" }}>[+03:01] Retry 1/3 → resubmitting</div>
+                    <div style={{ color: "#ef4444" }}>[+05:00] Retry 2/3 → connect ECONNREFUSED</div>
+                    <div style={{ color: "#ef4444" }}>[+07:00] Retry 3/3 → connect ECONNREFUSED</div>
+                    <div style={{ color: "#ef4444" }}>[+07:01] FAILED — max retries exceeded</div>
+                  </>
+                ) : step.status === "RUNNING" ? (
+                  <>
+                    <div style={{ color: "#22c55e" }}>[{step.startTime}] Submitted to {step.executor}</div>
+                    <div>[+00:01] Job registered: {step.jobId}</div>
+                    <div>[+00:16] Poll #1 → QUEUED</div>
+                    <div>[+00:31] Poll #2 → RUNNING</div>
+                    <div>[+00:46] Poll #3 → RUNNING · 12%</div>
+                    <div style={{ color: "#f59e0b" }}>[+01:01] Poll #4 → RUNNING · 28%</div>
+                    <div style={{ color: "#f59e0b", animation: "pulse-dot 1.4s ease-in-out infinite" }}>[+01:16] Poll #5 → RUNNING · 41% …</div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ color: "#22c55e" }}>[{step.startTime}] Submitted to {step.executor}</div>
+                    <div>[+00:01] Job registered: {step.jobId}</div>
+                    <div>[+00:16] Poll → RUNNING</div>
+                    <div style={{ color: "#22c55e" }}>[{step.endTime}] SUCCEEDED · {fmtRows(step.rowCount)} rows · {fmtBytes(step.bytesWritten)}</div>
+                  </>
+                )}
+              </div>
+
+              {actionDone ? (
+                <div style={{ marginTop: 10, padding: "7px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600,
+                  background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "#22c55e" }}>
+                  ✓ {actionDone === "kill" ? "Force kill signal sent" : "Step requeued for retry"}
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button onClick={() => handleAction("kill")} style={{
+                    flex: 1, padding: "7px 0", borderRadius: 4, fontSize: 11, fontWeight: 700,
+                    background: confirmAction === "kill" ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.1)",
+                    border: `1px solid ${confirmAction === "kill" ? "rgba(239,68,68,0.7)" : "rgba(239,68,68,0.3)"}`,
+                    color: "#ef4444", cursor: "pointer",
+                  }}>{confirmAction === "kill" ? "Confirm Kill?" : "Force Kill"}</button>
+                  <button onClick={() => handleAction("retry")} style={{
+                    flex: 1, padding: "7px 0", borderRadius: 4, fontSize: 11, fontWeight: 700,
+                    background: confirmAction === "retry" ? "rgba(245,158,11,0.25)" : "rgba(245,158,11,0.1)",
+                    border: `1px solid ${confirmAction === "retry" ? "rgba(245,158,11,0.7)" : "rgba(245,158,11,0.3)"}`,
+                    color: "#f59e0b", cursor: "pointer",
+                  }}>{confirmAction === "retry" ? "Confirm Retry?" : "Retry Step"}</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {role === "PROD_SUPPORT" && step.status === "FAILED" && (
+            <div style={{ marginTop: 12 }}>
+              <button style={{
+                width: "100%", padding: "7px 0", borderRadius: 4, fontSize: 11, fontWeight: 700,
+                background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)",
+                color: "#f59e0b", cursor: "pointer",
+              }}>⚠ Escalate to L3</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── MAIN APP ──────────────────────────────────────────────────────────────
+
+    function App() {
+      const [role, setRole] = useState("PROD_SUPPORT");
+      const [selectedPipeline, setSelectedPipeline] = useState(PIPELINES[0]);
+      const [selectedStep, setSelectedStep] = useState(null);
+      const [view, setView] = useState("DAG");
+      const [execFilter, setExecFilter] = useState(null);
+      const [clock, setClock] = useState(nowStr());
+
+      useEffect(() => {
+        const t = setInterval(() => setClock(nowStr()), 1000);
+        return () => clearInterval(t);
+      }, []);
+
+      const runDetail = RUN_DETAILS[selectedPipeline?.id];
+      const allSteps  = runDetail?.steps || [];
+      const filteredSteps = execFilter ? allSteps.filter(s => s.executor === execFilter) : allSteps;
+
+      const selectPipeline = (p) => {
+        setSelectedPipeline(p);
+        setSelectedStep(null);
+        setExecFilter(null);
+      };
+
+      return (
+        <div style={{
+          fontFamily: "'Inter', -apple-system, sans-serif",
+          background: "#060d1a", minHeight: "100vh", color: "#e2e8f0",
+          display: "flex", flexDirection: "column",
+        }}>
+
+          {/* ── NAV ── */}
+          <div style={{
+            borderBottom: "1px solid rgba(248,250,252,0.08)",
+            background: "rgba(6,13,26,0.97)",
+            position: "sticky", top: 0, zIndex: 100,
+            padding: "0 22px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 52 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: 7,
+                    background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 14, fontWeight: 900, color: "#fff", flexShrink: 0,
+                  }}>Q</div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9", letterSpacing: "-0.01em" }}>
+                      QRM Orchestration Monitor
+                    </div>
+                    <div style={{ fontSize: 9, color: "#475569", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.08em" }}>
+                      TREASURY TECHNOLOGY · PROD
+                    </div>
+                  </div>
+                </div>
+                <div style={{ width: 1, height: 28, background: "rgba(248,250,252,0.08)" }} />
+                <div style={{ fontSize: 11, color: "#475569", fontFamily: "'JetBrains Mono', monospace" }}>
+                  BIZ DATE: <span style={{ color: "#94a3b8" }}>2026-04-14</span>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {/* Role switcher */}
+                <div style={{ display: "flex", background: "rgba(248,250,252,0.04)", borderRadius: 5, padding: 2, gap: 1 }}>
+                  {[
+                    { key: "BUSINESS", label: "BUSINESS" },
+                    { key: "PROD_SUPPORT", label: "PROD SUP" },
+                    { key: "L3", label: "L3" },
+                  ].map(r => (
+                    <button key={r.key} onClick={() => { setRole(r.key); setSelectedStep(null); }} style={{
+                      padding: "4px 10px", borderRadius: 3, border: "none",
+                      fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", cursor: "pointer",
+                      background: role === r.key ? "rgba(99,102,241,0.3)" : "transparent",
+                      color: role === r.key ? "#a5b4fc" : "#475569",
+                    }}>{r.label}</button>
+                  ))}
+                </div>
+
+                <div style={{
+                  fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: "#475569",
+                  padding: "3px 8px", border: "1px solid rgba(248,250,252,0.07)", borderRadius: 4,
+                }}>{clock}</div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e",
+                    animation: "pulse-dot 2s ease-in-out infinite", display: "inline-block" }} />
+                  <span style={{ fontSize: 10, color: "#475569" }}>LIVE</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── BODY ── */}
+          <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+
+            {/* ── SIDEBAR ── */}
+            <div style={{
+              width: 298, flexShrink: 0,
+              borderRight: "1px solid rgba(248,250,252,0.07)",
+              background: "rgba(6,13,26,0.6)",
+              padding: "14px 10px", display: "flex", flexDirection: "column", gap: 10,
+              overflowY: "auto",
+            }}>
+              <div>
+                <div style={{ fontSize: 9, color: "#475569", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 7 }}>
+                  SLA SUMMARY · EOD BATCH
+                </div>
+                <SlaSummaryStrip pipelines={PIPELINES} />
+              </div>
+
+              <div style={{ height: 1, background: "rgba(248,250,252,0.06)" }} />
+
+              <div>
+                <div style={{ fontSize: 9, color: "#475569", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 7 }}>
+                  PIPELINES · {PIPELINES.length} ACTIVE
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {PIPELINES.map(p => (
+                    <PipelineCard key={p.id} pipeline={p}
+                      selected={selectedPipeline?.id === p.id}
+                      onClick={() => selectPipeline(p)} role={role} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ── MAIN ── */}
+            <div style={{ flex: 1, padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+
+              {selectedPipeline && runDetail && (
+                <>
+                  {/* Run header card */}
+                  <div style={{
+                    background: "rgba(248,250,252,0.02)", border: "1px solid rgba(248,250,252,0.08)",
+                    borderRadius: 8, padding: "14px 18px",
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 17, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>
+                          {selectedPipeline.name}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <StatusBadge status={selectedPipeline.lastRun.status} />
+                          <SlaBadge status={selectedPipeline.slaStatus} />
+                          {role !== "BUSINESS" && (
+                            <>
+                              <span style={{ fontSize: 10, color: "#475569", fontFamily: "'JetBrains Mono', monospace" }}>
+                                {runDetail.runId}
+                              </span>
+                              <span style={{ fontSize: 10, color: "#475569", fontFamily: "'JetBrains Mono', monospace" }}>
+                                git:{runDetail.gitSha}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                        {[
+                          { label: "START",        value: selectedPipeline.lastRun.startTime },
+                          { label: "SLA DEADLINE", value: selectedPipeline.slaDeadline },
+                          { label: "EST COMPLETE", value: selectedPipeline.estimatedCompletion || "—" },
+                          { label: "TRIGGER",      value: runDetail.triggerType },
+                        ].map(({ label, value }) => (
+                          <div key={label} style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: 9, color: "#475569", letterSpacing: "0.09em", marginBottom: 2 }}>{label}</div>
+                            <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: "#94a3b8" }}>{value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                        <span style={{ fontSize: 10, color: "#475569" }}>
+                          {selectedPipeline.steps.complete} / {Object.values(selectedPipeline.steps).reduce((a,b) => a+b, 0)} steps complete
+                        </span>
+                        {selectedPipeline.slaStatus === "ON_TRACK" && selectedPipeline.bufferMinutes > 0 &&
+                          <span style={{ fontSize: 10, color: "#22c55e" }}>+{selectedPipeline.bufferMinutes}m buffer</span>}
+                        {selectedPipeline.slaStatus === "BREACHED" &&
+                          <span style={{ fontSize: 10, color: "#ef4444" }}>SLA breached by {Math.abs(selectedPipeline.bufferMinutes)}m</span>}
+                        {selectedPipeline.slaStatus === "AT_RISK" &&
+                          <span style={{ fontSize: 10, color: "#f59e0b" }}>{selectedPipeline.bufferMinutes}m buffer remaining</span>}
+                      </div>
+                      <div style={{ height: 6, background: "#0f172a", borderRadius: 3, overflow: "hidden" }}>
+                        <StepBar steps={selectedPipeline.steps} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Controls row */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                    <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 10, color: "#475569", letterSpacing: "0.07em" }}>EXECUTOR</span>
+                      {[null, "QRM", "DATABRICKS", "AUTOSYS"].map(e => {
+                        const ecfg = e ? EXEC_CFG[e] : null;
+                        const isActive = execFilter === e;
+                        return (
+                          <button key={e || "ALL"} onClick={() => setExecFilter(e)} style={{
+                            padding: "3px 10px", borderRadius: 4, border: "none",
+                            fontSize: 10, fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em",
+                            background: isActive ? (ecfg ? ecfg.bg : "rgba(248,250,252,0.1)") : "rgba(248,250,252,0.03)",
+                            color: isActive ? (ecfg ? ecfg.color : "#e2e8f0") : "#475569",
+                            border: isActive
+                              ? `1px solid ${ecfg ? ecfg.color + "55" : "rgba(248,250,252,0.2)"}`
+                              : "1px solid rgba(248,250,252,0.07)",
+                          }}>{e || "ALL"}</button>
+                        );
+                      })}
+                    </div>
+
+                    <div style={{ display: "flex", background: "rgba(248,250,252,0.04)", borderRadius: 5, padding: 2, gap: 1 }}>
+                      {[["DAG", "⬡ FLOW"], ["LIST", "≡ LIST"]].map(([v, label]) => (
+                        <button key={v} onClick={() => setView(v)} style={{
+                          padding: "4px 12px", borderRadius: 3, border: "none",
+                          fontSize: 10, fontWeight: 700, cursor: "pointer",
+                          background: view === v ? "rgba(248,250,252,0.1)" : "transparent",
+                          color: view === v ? "#e2e8f0" : "#475569",
+                        }}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Main view + detail panel */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: selectedStep ? "1fr 300px" : "1fr",
+                    gap: 14, alignItems: "start",
+                  }}>
+                    <div style={{
+                      background: "rgba(248,250,252,0.015)", border: "1px solid rgba(248,250,252,0.07)",
+                      borderRadius: 8, padding: "16px 18px",
+                    }}>
+                      <div style={{ fontSize: 10, color: "#475569", letterSpacing: "0.1em", fontWeight: 700, marginBottom: 14 }}>
+                        {view === "DAG" ? "JOB DEPENDENCY FLOW" : "STEP SEQUENCE"}
+                        {execFilter && <span style={{ color: EXEC_CFG[execFilter]?.color }}> · {execFilter} ONLY</span>}
+                      </div>
+                      {view === "DAG"
+                        ? <DagFlowView steps={filteredSteps} onSelectStep={setSelectedStep} selectedStep={selectedStep} />
+                        : <StepListView steps={filteredSteps} onSelect={setSelectedStep} selected={selectedStep} role={role} />}
+                    </div>
+
+                    {selectedStep && (
+                      <StepDetailPanel step={selectedStep} onClose={() => setSelectedStep(null)} role={role} />
+                    )}
+                  </div>
+
+                  {/* Audit footer */}
+                  {(role === "L3" || role === "PROD_SUPPORT") && (
+                    <div style={{
+                      background: "rgba(248,250,252,0.015)", border: "1px solid rgba(248,250,252,0.07)",
+                      borderRadius: 8, padding: "10px 16px",
+                      display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap",
+                    }}>
+                      <span style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: "0.1em" }}>AUDIT</span>
+                      {[
+                        { label: "Triggered By", value: runDetail.triggeredBy },
+                        { label: "Trigger",      value: runDetail.triggerType },
+                        { label: "Git SHA",      value: runDetail.gitSha },
+                        { label: "Biz Date",     value: runDetail.businessDate },
+                        { label: "Run ID",       value: runDetail.runId },
+                      ].map(({ label, value }) => (
+                        <div key={label}>
+                          <div style={{ fontSize: 9, color: "#475569", letterSpacing: "0.07em" }}>{label}</div>
+                          <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "'JetBrains Mono', monospace" }}>{value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
