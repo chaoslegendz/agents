@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QRM Orchestration Monitor</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { background: #f1f5f9; font-family: 'DM Sans', sans-serif; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.25} }
+    @keyframes progress-slide { 0%{transform:translateX(-100%)} 100%{transform:translateX(380%)} }
+    @keyframes shimmer-bar { 0%,100%{opacity:.5} 50%{opacity:1} }
+    @keyframes fadeSlideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes modalIn { from{opacity:0;transform:scale(.96)} to{opacity:1;transform:scale(1)} }
+    @keyframes slideRight { from{transform:translateX(16px);opacity:0} to{transform:translateX(0);opacity:1} }
+    .fade-in { animation: fadeSlideIn .2s ease forwards; }
+    .slide-right { animation: slideRight .18s ease forwards; }
+    button { font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .12s; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+// ── ENV CONFIG ────────────────────────────────────────────────────────────────
+const ENVS = {
+  DEV:  { color:"#0891b2", bg:"#e0f2fe", border:"#7dd3fc", text:"Development environment — unrestricted access" },
+  PAT:  { color:"#7c3aed", bg:"#ede9fe", border:"#c4b5fd", text:"Pre-acceptance testing environment" },
+  UAT:  { color:"#0d9488", bg:"#ccfbf1", border:"#5eead4", text:"User acceptance testing environment" },
+  PROD: { color:"#dc2626", bg:"#fee2e2", border:"#fca5a5", text:"Production — L3 write access restricted" },
+};
+const canWrite = (role, env) => env==="PROD" ? role==="PROD_SUPPORT" : (role==="PROD_SUPPORT"||role==="L3");
+
+// ── DATA ─────────────────────────────────────────────────────────────────────
+const PIPELINES = [
+  { id:"qrm.pipeline.eod_risk",       name:"QRM End-of-Day Risk",  owner:"qrm_platform",      tags:["tier1","FRTB","regulatory"],   slaDeadline:"21:30", slaStatus:"ON_TRACK", bufferMinutes:38,  businessDate:"2026-04-14", lastRun:{runId:"run-4821",status:"RUNNING", startTime:"18:02:11"}, steps:{complete:4,running:1,pending:3,failed:0}, estimatedCompletion:"20:47" },
+  { id:"qrm.pipeline.ftp_risk",       name:"FTP Risk Pipeline",    owner:"alm_platform",      tags:["tier1","FTP","ALM"],           slaDeadline:"22:00", slaStatus:"AT_RISK",  bufferMinutes:12,  businessDate:"2026-04-14", lastRun:{runId:"run-4823",status:"RUNNING", startTime:"18:50:00"}, steps:{complete:3,running:2,pending:3,failed:0}, estimatedCompletion:"21:52" },
+  { id:"qrm.pipeline.var_calc",       name:"VaR Calculation",      owner:"market_risk",       tags:["tier1","basel","daily"],       slaDeadline:"22:00", slaStatus:"AT_RISK",  bufferMinutes:12,  businessDate:"2026-04-14", lastRun:{runId:"run-4822",status:"RUNNING", startTime:"18:45:00"}, steps:{complete:2,running:1,pending:4,failed:1}, estimatedCompletion:"21:51" },
+  { id:"qrm.pipeline.sa_ccr",         name:"SA-CCR Exposure",      owner:"counterparty_risk", tags:["tier1","SA-CCR","regulatory"], slaDeadline:"20:00", slaStatus:"MET",      bufferMinutes:0,   businessDate:"2026-04-14", lastRun:{runId:"run-4818",status:"SUCCESS", startTime:"16:10:00"}, steps:{complete:7,running:0,pending:0,failed:0}, estimatedCompletion:"18:04" },
+  { id:"qrm.pipeline.cva_run",        name:"CVA / BA-CVA",         owner:"xva_desk",          tags:["tier2","CVA","OTC"],           slaDeadline:"23:00", slaStatus:"BREACHED", bufferMinutes:-18, businessDate:"2026-04-14", lastRun:{runId:"run-4820",status:"FAILED",  startTime:"17:30:00"}, steps:{complete:3,running:0,pending:2,failed:2}, estimatedCompletion:null },
+  { id:"qrm.pipeline.bcbs239_lineage",name:"BCBS 239 Lineage",     owner:"data_governance",   tags:["tier2","BCBS239","weekly"],    slaDeadline:"09:00", slaStatus:"MET",      bufferMinutes:0,   businessDate:"2026-04-14", lastRun:{runId:"run-4810",status:"SUCCESS", startTime:"07:01:00"}, steps:{complete:5,running:0,pending:0,failed:0}, estimatedCompletion:"07:55" },
+];
+
+const REPORTS = [
+  { id:"rpt.ftp.daily_interest",  name:"FTP Daily Interest Income",        category:"FTP",          pipeline:"qrm.pipeline.eod_risk",        step:"publish_pnl",    description:"Daily interest income attribution across all BUs with FTP charges applied", lastGenerated:"18:04 est", status:"PENDING" },
+  { id:"rpt.ftp.transfer_pricing",name:"FTP Transfer Pricing Summary",     category:"FTP",          pipeline:"qrm.pipeline.ftp_risk",        step:"publish_ftp",    description:"FTP curve rates and transfer pricing adjustments for the current business date", lastGenerated:"Running…",  status:"RUNNING" },
+  { id:"rpt.ftp.funds_cost",      name:"FTP Funds Cost Attribution",       category:"FTP",          pipeline:"qrm.pipeline.ftp_risk",        step:"publish_ftp",    description:"Funds cost breakdown by product type, tenor bucket, and business line", lastGenerated:"Running…",  status:"RUNNING" },
+  { id:"rpt.ftp.nii_flash",       name:"NII Flash Report",                 category:"FTP",          pipeline:"qrm.pipeline.ftp_risk",        step:"nii_publish",    description:"Net interest income flash estimate including hedging impact", lastGenerated:"Yesterday 21:10", status:"PENDING" },
+  { id:"rpt.var.daily_breach",    name:"VaR Daily Breach Report",          category:"Market Risk",  pipeline:"qrm.pipeline.var_calc",        step:"breach_check",   description:"Daily VaR limit breach summary across all trading desks", lastGenerated:"Running…",  status:"RUNNING" },
+  { id:"rpt.var.backtesting",     name:"VaR Backtesting Report",           category:"Market Risk",  pipeline:"qrm.pipeline.var_calc",        step:"publish_var",    description:"P&L vs VaR comparison for backtesting exception reporting", lastGenerated:"Running…",  status:"RUNNING" },
+  { id:"rpt.mr.rwa_summary",      name:"Market Risk RWA Summary",          category:"Market Risk",  pipeline:"qrm.pipeline.var_calc",        step:"publish_var",    description:"Standardised RWA under FRTB SA and IMA for all in-scope desks", lastGenerated:"Running…",  status:"RUNNING" },
+  { id:"rpt.saccr.ead",           name:"SA-CCR EAD Report",                category:"Counterparty", pipeline:"qrm.pipeline.sa_ccr",          step:"rwa_roll",       description:"Exposure-at-Default by counterparty and netting set under SA-CCR", lastGenerated:"18:04",     status:"COMPLETE" },
+  { id:"rpt.saccr.rwa",           name:"SA-CCR RWA Roll-Up",               category:"Counterparty", pipeline:"qrm.pipeline.sa_ccr",          step:"rwa_roll",       description:"RWA roll-up from EAD x risk weights by counterparty rating", lastGenerated:"18:04",     status:"COMPLETE" },
+  { id:"rpt.cva.capital",         name:"CVA Capital Report",               category:"CVA",          pipeline:"qrm.pipeline.cva_run",         step:"publish_cva",    description:"BA-CVA and SA-CVA capital charge by counterparty and netting set", lastGenerated:"FAILED",    status:"FAILED" },
+  { id:"rpt.cva.sensitivities",   name:"CVA Sensitivities",                category:"CVA",          pipeline:"qrm.pipeline.cva_run",         step:"publish_cva",    description:"CVA delta and vega sensitivities for FRTB CVA framework", lastGenerated:"FAILED",    status:"FAILED" },
+  { id:"rpt.bcbs.dq_scorecard",   name:"BCBS 239 Data Quality Scorecard",  category:"Governance",   pipeline:"qrm.pipeline.bcbs239_lineage", step:"notify_gov",     description:"Weekly data quality score across all risk data aggregation systems", lastGenerated:"07:55",     status:"COMPLETE" },
+];
+
+const RUN_DETAILS = {
+  "qrm.pipeline.eod_risk": {
+    runId:"run-4821",businessDate:"2026-04-14",status:"RUNNING",triggeredBy:"sp-scheduler-prod",triggerType:"SCHEDULE",gitSha:"a3f9c21",startTime:"18:02:11",
+    steps:[
+      {stepId:"extract_positions",name:"Extract Risk Positions",executor:"DATABRICKS",jobId:"dbs-job-2241",status:"SUCCEEDED",startTime:"18:02:15",endTime:"18:07:43",durationSeconds:328,rowCount:145230,bytesWritten:48291023,retryAttempts:0,depends:[]},
+      {stepId:"extract_mktdata",  name:"Extract Market Data",   executor:"QRM",       jobId:"qrm-etl-0091",status:"SUCCEEDED",startTime:"18:02:15",endTime:"18:09:01",durationSeconds:406,rowCount:892400,bytesWritten:112048192,retryAttempts:1,depends:[]},
+      {stepId:"validate_positions",name:"DQ: Positions Gate",  executor:"DATABRICKS",jobId:"dbs-job-2242",status:"SUCCEEDED",startTime:"18:07:45",endTime:"18:12:10",durationSeconds:265,rowCount:145230,bytesWritten:null,retryAttempts:0,depends:["extract_positions"]},
+      {stepId:"validate_mktdata", name:"DQ: Market Data Gate",  executor:"DATABRICKS",jobId:"dbs-job-2243",status:"SUCCEEDED",startTime:"18:09:03",endTime:"18:14:55",durationSeconds:352,rowCount:892400,bytesWritten:null,retryAttempts:0,depends:["extract_mktdata"]},
+      {stepId:"qrm_compute",      name:"QRM Risk Compute",       executor:"QRM",       jobId:"qrm-comp-0441",status:"RUNNING",startTime:"18:15:02",endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["validate_positions","validate_mktdata"]},
+      {stepId:"load_results",     name:"Load to Stage 3",        executor:"AUTOSYS",   jobId:"aut-load-99",status:"PENDING",startTime:null,endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["qrm_compute"]},
+      {stepId:"publish_pnl",      name:"Publish P&L / FTP Feed", executor:"AUTOSYS",   jobId:"aut-pnl-12",status:"PENDING",startTime:null,endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["load_results"]},
+      {stepId:"sla_signal",       name:"SLA Completion Signal",  executor:"AUTOSYS",   jobId:"aut-sla-04",status:"PENDING",startTime:null,endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["publish_pnl"]},
+    ],
+  },
+  "qrm.pipeline.ftp_risk": {
+    runId:"run-4823",businessDate:"2026-04-14",status:"RUNNING",triggeredBy:"sp-scheduler-prod",triggerType:"SCHEDULE",gitSha:"f112a88",startTime:"18:50:00",
+    steps:[
+      {stepId:"extract_curves",  name:"Extract FTP Curves",     executor:"QRM",       jobId:"qrm-ftp-0010",status:"SUCCEEDED",startTime:"18:50:05",endTime:"18:57:20",durationSeconds:435,rowCount:28000,bytesWritten:9400000,retryAttempts:0,depends:[]},
+      {stepId:"extract_balances",name:"Extract Balance Sheet",  executor:"DATABRICKS",jobId:"dbs-job-3200",status:"SUCCEEDED",startTime:"18:50:05",endTime:"18:55:41",durationSeconds:336,rowCount:340000,bytesWritten:72000000,retryAttempts:0,depends:[]},
+      {stepId:"dq_balances",     name:"DQ: Balance Gate",       executor:"DATABRICKS",jobId:"dbs-job-3201",status:"SUCCEEDED",startTime:"18:55:43",endTime:"18:59:10",durationSeconds:207,rowCount:340000,bytesWritten:null,retryAttempts:0,depends:["extract_balances"]},
+      {stepId:"ftp_compute",     name:"FTP Attribution Compute",executor:"QRM",       jobId:"qrm-ftp-0011",status:"RUNNING",startTime:"18:59:20",endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["extract_curves","dq_balances"]},
+      {stepId:"nii_compute",     name:"NII Flash Compute",      executor:"QRM",       jobId:"qrm-nii-0012",status:"RUNNING",startTime:"18:59:20",endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["extract_curves","dq_balances"]},
+      {stepId:"publish_ftp",     name:"Publish FTP Reports",    executor:"AUTOSYS",   jobId:"aut-ftp-21",status:"PENDING",startTime:null,endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["ftp_compute"]},
+      {stepId:"nii_publish",     name:"Publish NII Flash",      executor:"AUTOSYS",   jobId:"aut-nii-22",status:"PENDING",startTime:null,endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["nii_compute"]},
+      {stepId:"ftp_signal",      name:"FTP SLA Signal",         executor:"AUTOSYS",   jobId:"aut-ftp-sig",status:"PENDING",startTime:null,endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["publish_ftp","nii_publish"]},
+    ],
+  },
+  "qrm.pipeline.var_calc": {
+    runId:"run-4822",businessDate:"2026-04-14",status:"RUNNING",triggeredBy:"sp-scheduler-prod",triggerType:"SCHEDULE",gitSha:"b91e3d4",startTime:"18:45:00",
+    steps:[
+      {stepId:"fetch_scenarios",name:"Fetch Scenario Sets",  executor:"QRM",       jobId:"qrm-scen-0120",status:"SUCCEEDED",startTime:"18:45:05",endTime:"18:52:44",durationSeconds:459,rowCount:500000,bytesWritten:82000000,retryAttempts:0,depends:[]},
+      {stepId:"load_positions", name:"Load Positions",       executor:"DATABRICKS",jobId:"dbs-job-3010",status:"SUCCEEDED",startTime:"18:45:05",endTime:"18:49:21",durationSeconds:256,rowCount:98200,bytesWritten:22000000,retryAttempts:0,depends:[]},
+      {stepId:"dq_check",       name:"DQ Gate",              executor:"DATABRICKS",jobId:"dbs-job-3011",status:"FAILED",startTime:"18:49:25",endTime:"18:51:10",durationSeconds:105,rowCount:null,bytesWritten:null,retryAttempts:2,depends:["load_positions"],errorCode:"DQ_THRESHOLD_BREACH",errorMsg:"Null rate count 4.2% exceeds threshold 2%"},
+      {stepId:"var_calc",       name:"VaR Calculation",      executor:"QRM",       jobId:"qrm-var-0310",status:"RUNNING",startTime:"18:53:00",endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["fetch_scenarios"]},
+      {stepId:"es_calc",        name:"Expected Shortfall",   executor:"QRM",       jobId:"qrm-es-0311",status:"PENDING",startTime:null,endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["var_calc"]},
+      {stepId:"publish_var",    name:"Publish VaR to MR DB", executor:"AUTOSYS",   jobId:"aut-var-07",status:"PENDING",startTime:null,endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["es_calc"]},
+      {stepId:"breach_check",   name:"Limit Breach Check",   executor:"AUTOSYS",   jobId:"aut-breach-08",status:"PENDING",startTime:null,endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["publish_var"]},
+    ],
+  },
+  "qrm.pipeline.sa_ccr": {
+    runId:"run-4818",businessDate:"2026-04-14",status:"SUCCESS",triggeredBy:"sp-scheduler-prod",triggerType:"SCHEDULE",gitSha:"c44d812",startTime:"16:10:00",
+    steps:[
+      {stepId:"extract_trades", name:"Extract OTC Trades",  executor:"QRM",       jobId:"qrm-trades-01",status:"SUCCEEDED",startTime:"16:10:05",endTime:"16:18:40",durationSeconds:515,rowCount:320000,bytesWritten:95000000,retryAttempts:0,depends:[]},
+      {stepId:"extract_collat", name:"Extract Collateral",  executor:"DATABRICKS",jobId:"dbs-job-1100",status:"SUCCEEDED",startTime:"16:10:05",endTime:"16:14:22",durationSeconds:257,rowCount:45000,bytesWritten:8200000,retryAttempts:0,depends:[]},
+      {stepId:"dq_trades",      name:"DQ: Trade Gate",      executor:"DATABRICKS",jobId:"dbs-job-1101",status:"SUCCEEDED",startTime:"16:18:42",endTime:"16:22:15",durationSeconds:213,rowCount:320000,bytesWritten:null,retryAttempts:0,depends:["extract_trades"]},
+      {stepId:"dq_collat",      name:"DQ: Collateral Gate", executor:"DATABRICKS",jobId:"dbs-job-1102",status:"SUCCEEDED",startTime:"16:14:25",endTime:"16:17:10",durationSeconds:165,rowCount:45000,bytesWritten:null,retryAttempts:0,depends:["extract_collat"]},
+      {stepId:"saccr_compute",  name:"SA-CCR EAD Compute",  executor:"QRM",       jobId:"qrm-saccr-0220",status:"SUCCEEDED",startTime:"16:22:20",endTime:"17:05:44",durationSeconds:2604,rowCount:320000,bytesWritten:210000000,retryAttempts:0,depends:["dq_trades","dq_collat"]},
+      {stepId:"load_ead",       name:"Load EAD to Stage 3", executor:"AUTOSYS",   jobId:"aut-ead-03",status:"SUCCEEDED",startTime:"17:05:50",endTime:"17:12:20",durationSeconds:390,rowCount:320000,bytesWritten:null,retryAttempts:0,depends:["saccr_compute"]},
+      {stepId:"rwa_roll",       name:"RWA Roll-up",          executor:"AUTOSYS",   jobId:"aut-rwa-05",status:"SUCCEEDED",startTime:"17:12:25",endTime:"17:18:04",durationSeconds:339,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["load_ead"]},
+    ],
+  },
+  "qrm.pipeline.cva_run": {
+    runId:"run-4820",businessDate:"2026-04-14",status:"FAILED",triggeredBy:"sp-scheduler-prod",triggerType:"SCHEDULE",gitSha:"d72b99f",startTime:"17:30:00",
+    steps:[
+      {stepId:"fetch_otc",     name:"Extract OTC Book",       executor:"QRM",       jobId:"qrm-cva-01",status:"SUCCEEDED",startTime:"17:30:05",endTime:"17:37:30",durationSeconds:445,rowCount:210000,bytesWritten:72000000,retryAttempts:0,depends:[]},
+      {stepId:"fetch_credit",  name:"Extract Credit Spreads", executor:"DATABRICKS",jobId:"dbs-job-4200",status:"SUCCEEDED",startTime:"17:30:05",endTime:"17:33:18",durationSeconds:193,rowCount:14000,bytesWritten:5100000,retryAttempts:0,depends:[]},
+      {stepId:"dq_otc",       name:"DQ: OTC Book Gate",       executor:"DATABRICKS",jobId:"dbs-job-4201",status:"SUCCEEDED",startTime:"17:37:33",endTime:"17:40:50",durationSeconds:197,rowCount:210000,bytesWritten:null,retryAttempts:0,depends:["fetch_otc"]},
+      {stepId:"bacva_compute", name:"BA-CVA Compute",          executor:"QRM",       jobId:"qrm-bacva-0310",status:"FAILED",startTime:"17:41:00",endTime:"17:51:02",durationSeconds:602,rowCount:null,bytesWritten:null,retryAttempts:3,depends:["dq_otc","fetch_credit"],errorCode:"QRM_API_TIMEOUT",errorMsg:"connect ECONNREFUSED qrm-prod:8443 — max retries exceeded"},
+      {stepId:"sacva_compute", name:"SA-CVA Compute",          executor:"QRM",       jobId:"qrm-sacva-0311",status:"FAILED",startTime:"17:41:00",endTime:"17:48:55",durationSeconds:475,rowCount:null,bytesWritten:null,retryAttempts:3,depends:["dq_otc","fetch_credit"],errorCode:"QRM_API_TIMEOUT",errorMsg:"connect ECONNREFUSED qrm-prod:8443 — max retries exceeded"},
+      {stepId:"publish_cva",   name:"Publish CVA to Canoe",    executor:"AUTOSYS",   jobId:"aut-cva-09",status:"PENDING",startTime:null,endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["bacva_compute","sacva_compute"]},
+      {stepId:"pillar3_signal",name:"Pillar 3 Feed",           executor:"AUTOSYS",   jobId:"aut-p3-10",status:"PENDING",startTime:null,endTime:null,durationSeconds:null,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["publish_cva"]},
+    ],
+  },
+  "qrm.pipeline.bcbs239_lineage": {
+    runId:"run-4810",businessDate:"2026-04-14",status:"SUCCESS",triggeredBy:"sp-scheduler-weekly",triggerType:"SCHEDULE",gitSha:"e88a331",startTime:"07:01:00",
+    steps:[
+      {stepId:"scan_adls",      name:"Scan ADLS Datasets",       executor:"DATABRICKS",jobId:"dbs-job-5100",status:"SUCCEEDED",startTime:"07:01:05",endTime:"07:11:30",durationSeconds:625,rowCount:8200,bytesWritten:null,retryAttempts:0,depends:[]},
+      {stepId:"build_lineage",  name:"Build Lineage Graph",       executor:"DATABRICKS",jobId:"dbs-job-5101",status:"SUCCEEDED",startTime:"07:11:32",endTime:"07:28:10",durationSeconds:998,rowCount:8200,bytesWritten:14000000,retryAttempts:0,depends:["scan_adls"]},
+      {stepId:"validate_rcdii", name:"RCDII Completeness Check",  executor:"DATABRICKS",jobId:"dbs-job-5102",status:"SUCCEEDED",startTime:"07:28:12",endTime:"07:39:40",durationSeconds:688,rowCount:8200,bytesWritten:null,retryAttempts:0,depends:["build_lineage"]},
+      {stepId:"publish_catalog",name:"Publish to Unity Catalog",  executor:"DATABRICKS",jobId:"dbs-job-5103",status:"SUCCEEDED",startTime:"07:39:42",endTime:"07:48:55",durationSeconds:553,rowCount:8200,bytesWritten:14000000,retryAttempts:0,depends:["validate_rcdii"]},
+      {stepId:"notify_gov",     name:"Governance Notification",   executor:"AUTOSYS",   jobId:"aut-gov-01",status:"SUCCEEDED",startTime:"07:48:58",endTime:"07:50:02",durationSeconds:64,rowCount:null,bytesWritten:null,retryAttempts:0,depends:["publish_catalog"]},
+    ],
+  },
+};
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+const fmtDuration = s => { if(!s&&s!==0)return"—"; if(s<60)return`${s}s`; if(s<3600)return`${Math.floor(s/60)}m ${s%60}s`; return`${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`; };
+const fmtBytes   = b => { if(!b)return"—"; if(b<1048576)return`${(b/1024).toFixed(1)} KB`; if(b<1073741824)return`${(b/1048576).toFixed(1)} MB`; return`${(b/1073741824).toFixed(2)} GB`; };
+const fmtRows    = n => { if(!n)return"—"; return n>=1e6?`${(n/1e6).toFixed(2)}M`:n>=1000?`${(n/1000).toFixed(1)}K`:String(n); };
+const nowStr     = () => new Date().toLocaleTimeString("en-CA",{hour12:false});
+
+// ── STATUS / EXEC ─────────────────────────────────────────────────────────────
+const S_CFG = {
+  SUCCEEDED:{ color:"#16a34a",bg:"#dcfce7",border:"#bbf7d0",label:"SUCCESS", pulse:false },
+  SUCCESS:  { color:"#16a34a",bg:"#dcfce7",border:"#bbf7d0",label:"SUCCESS", pulse:false },
+  RUNNING:  { color:"#d97706",bg:"#fef3c7",border:"#fde68a",label:"RUNNING", pulse:true  },
+  FAILED:   { color:"#dc2626",bg:"#fee2e2",border:"#fecaca",label:"FAILED",  pulse:false },
+  PENDING:  { color:"#64748b",bg:"#f1f5f9",border:"#e2e8f0",label:"PENDING", pulse:false },
+  COMPLETE: { color:"#16a34a",bg:"#dcfce7",border:"#bbf7d0",label:"COMPLETE",pulse:false },
+};
+const SLA_CFG = {
+  ON_TRACK:{ color:"#16a34a",bg:"#f0fdf4",border:"#bbf7d0",label:"ON TRACK" },
+  AT_RISK: { color:"#d97706",bg:"#fffbeb",border:"#fde68a",label:"AT RISK"  },
+  MET:     { color:"#2563eb",bg:"#eff6ff",border:"#bfdbfe",label:"MET"      },
+  BREACHED:{ color:"#dc2626",bg:"#fff1f2",border:"#fecaca",label:"BREACHED" },
+};
+const EXEC_CFG = {
+  QRM:        { color:"#7c3aed",bg:"#ede9fe",border:"#ddd6fe" },
+  DATABRICKS: { color:"#ea580c",bg:"#fff7ed",border:"#fed7aa" },
+  AUTOSYS:    { color:"#0891b2",bg:"#ecfeff",border:"#a5f3fc" },
+};
+
+// ── ATOMS ─────────────────────────────────────────────────────────────────────
+function Chip({ color,bg,border,label,pulse,small }) {
+  return (
+    <span style={{ display:"inline-flex",alignItems:"center",gap:5,
+      padding:small?"2px 7px":"3px 10px", borderRadius:4,
+      fontSize:small?10:11, fontWeight:600, letterSpacing:"0.04em",
+      fontFamily:"'DM Mono',monospace",
+      color, background:bg, border:`1px solid ${border}`,whiteSpace:"nowrap" }}>
+      {pulse!==undefined&&<span style={{ width:5,height:5,borderRadius:"50%",background:color,flexShrink:0,
+        animation:pulse?"pulse-dot 1.4s ease-in-out infinite":"none" }}/>}
+      {label}
+    </span>
+  );
+}
+const StatusChip = ({status,small}) => { const c=S_CFG[status]||S_CFG.PENDING; return <Chip {...c} label={c.label} small={small} pulse={c.pulse}/>; };
+const SlaChip    = ({status})       => { const c=SLA_CFG[status]||SLA_CFG.ON_TRACK; return <Chip {...c} small/>; };
+const ExecChip   = ({executor})     => { const c=EXEC_CFG[executor]||{color:"#64748b",bg:"#f1f5f9",border:"#e2e8f0"}; return <Chip {...c} label={executor} small/>; };
+const RptChip    = ({status})       => { const c=S_CFG[status]||S_CFG.PENDING; return <Chip {...c} label={c.label} small/>; };
+
+function StepBar({ steps }) {
+  const total=steps.complete+steps.running+steps.pending+steps.failed;
+  if(!total)return null;
+  return (
+    <div style={{display:"flex",gap:1,height:5,borderRadius:3,overflow:"hidden",background:"#e2e8f0"}}>
+      {steps.failed>0   && <div style={{flex:steps.failed,   background:"#dc2626"}}/>}
+      {steps.complete>0 && <div style={{flex:steps.complete, background:"#16a34a"}}/>}
+      {steps.running>0  && <div style={{flex:steps.running,  background:"#d97706",animation:"shimmer-bar 1.5s ease-in-out infinite"}}/>}
+      {steps.pending>0  && <div style={{flex:steps.pending,  background:"#e2e8f0"}}/>}
+    </div>
+  );
+}
+
+// ── TRIGGER MODAL ─────────────────────────────────────────────────────────────
+function TriggerModal({ pipeline, env, onClose, onConfirm }) {
+  const [done,setDone]=useState(false);
+  const ec=ENVS[env];
+  const go=()=>{setDone(true);setTimeout(()=>{onConfirm();onClose();},1200);};
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.35)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(3px)"}}>
+      <div style={{background:"#fff",borderRadius:12,padding:28,width:430,maxWidth:"92vw",boxShadow:"0 24px 64px rgba(15,23,42,0.16)",border:"1px solid #e2e8f0",animation:"modalIn .18s ease forwards"}}>
+        {done ? (
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            <div style={{fontSize:40,marginBottom:10}}>✅</div>
+            <div style={{fontSize:15,fontWeight:700,color:"#0f172a"}}>Run Triggered</div>
+            <div style={{fontSize:12,color:"#64748b",marginTop:3}}>{pipeline.name}</div>
+          </div>
+        ) : (
+          <>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+              <div>
+                <div style={{fontSize:15,fontWeight:700,color:"#0f172a",marginBottom:3}}>Trigger Pipeline Run</div>
+                <div style={{fontSize:12,color:"#64748b"}}>{pipeline.name}</div>
+              </div>
+              <button onClick={onClose} style={{background:"none",border:"none",fontSize:18,color:"#94a3b8",padding:0,lineHeight:1}}>✕</button>
+            </div>
+            <div style={{background:ec.bg,border:`1px solid ${ec.border}`,borderRadius:7,padding:"10px 13px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:11,fontWeight:800,letterSpacing:"0.08em",color:ec.color,fontFamily:"'DM Mono',monospace",background:"white",padding:"2px 7px",borderRadius:3,border:`1px solid ${ec.border}`}}>{env}</span>
+              <span style={{fontSize:12,color:ec.color}}>{env==="PROD"?"⚠ You are triggering in PRODUCTION":ec.text}</span>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:18}}>
+              {[{l:"Pipeline",v:pipeline.id},{l:"Business Date",v:pipeline.businessDate},{l:"Trigger Type",v:"MANUAL"},{l:"Last Run",v:pipeline.lastRun.runId}].map(({l,v})=>(
+                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#f8fafc",borderRadius:5,border:"1px solid #e2e8f0"}}>
+                  <span style={{fontSize:11,color:"#64748b"}}>{l}</span>
+                  <span style={{fontSize:11,color:"#0f172a",fontFamily:"'DM Mono',monospace"}}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={onClose} style={{flex:1,padding:"9px 0",borderRadius:7,border:"1px solid #e2e8f0",background:"#f8fafc",fontSize:13,fontWeight:600,color:"#64748b"}}>Cancel</button>
+              <button onClick={go} style={{flex:1,padding:"9px 0",borderRadius:7,border:"none",background:env==="PROD"?"#dc2626":"#4338ca",fontSize:13,fontWeight:700,color:"#fff"}}>
+                {env==="PROD"?"⚠ Confirm — PROD":"Confirm Trigger"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── PIPELINE CARD ─────────────────────────────────────────────────────────────
+function PipelineCard({ pipeline, selected, onClick, role, env, onTrigger }) {
+  const write=canWrite(role,env);
+  return (
+    <div onClick={onClick} style={{background:selected?"#eff6ff":"#fff",border:`1.5px solid ${selected?"#3b82f6":"#e2e8f0"}`,borderRadius:8,padding:"12px 13px",cursor:"pointer",transition:"all .15s",boxShadow:selected?"0 0 0 3px rgba(59,130,246,0.1)":"0 1px 2px rgba(15,23,42,0.04)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+        <div style={{flex:1,minWidth:0,paddingRight:8}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#0f172a",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pipeline.name}</div>
+          <div style={{fontSize:9,color:"#94a3b8",fontFamily:"'DM Mono',monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pipeline.id}</div>
+        </div>
+        <StatusChip status={pipeline.lastRun.status} small/>
+      </div>
+      <StepBar steps={pipeline.steps}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
+        <div style={{display:"flex",gap:5,alignItems:"center"}}>
+          <SlaChip status={pipeline.slaStatus}/>
+          {pipeline.slaStatus==="ON_TRACK"&&pipeline.bufferMinutes>0&&<span style={{fontSize:10,color:"#16a34a"}}>+{pipeline.bufferMinutes}m</span>}
+          {pipeline.slaStatus==="BREACHED"&&<span style={{fontSize:10,color:"#dc2626"}}>{Math.abs(pipeline.bufferMinutes)}m over</span>}
+          {pipeline.slaStatus==="AT_RISK"&&<span style={{fontSize:10,color:"#d97706"}}>{pipeline.bufferMinutes}m left</span>}
+        </div>
+        <span style={{fontSize:9,color:"#94a3b8",fontFamily:"'DM Mono',monospace"}}>SLA {pipeline.slaDeadline}</span>
+      </div>
+      {role!=="BUSINESS"&&<div style={{marginTop:6,fontSize:10,color:"#94a3b8"}}>✓{pipeline.steps.complete} ▶{pipeline.steps.running} ◌{pipeline.steps.pending}{pipeline.steps.failed>0&&<span style={{color:"#dc2626"}}> ✗{pipeline.steps.failed}</span>}</div>}
+      {write&&role!=="BUSINESS"&&(
+        <button onClick={e=>{e.stopPropagation();onTrigger(pipeline);}} style={{marginTop:9,width:"100%",padding:"5px 0",borderRadius:5,border:"1px solid #ddd6fe",background:"#f5f3ff",fontSize:11,fontWeight:600,color:"#4338ca"}}>▶ Trigger Run</button>
+      )}
+      <div style={{display:"flex",gap:3,marginTop:7,flexWrap:"wrap"}}>
+        {pipeline.tags.map(t=><span key={t} style={{fontSize:9,color:"#94a3b8",padding:"1px 5px",border:"1px solid #e2e8f0",borderRadius:3,fontFamily:"'DM Mono',monospace"}}>{t}</span>)}
+      </div>
+    </div>
+  );
+}
+
+// ── SLA STRIP ─────────────────────────────────────────────────────────────────
+function SlaSummaryStrip({ pipelines }) {
+  const c={MET:0,ON_TRACK:0,AT_RISK:0,BREACHED:0};
+  pipelines.forEach(p=>c[p.slaStatus]++);
+  return (
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5}}>
+      {[{k:"MET",l:"Met",color:"#2563eb",bg:"#eff6ff"},{k:"ON_TRACK",l:"On Track",color:"#16a34a",bg:"#f0fdf4"},{k:"AT_RISK",l:"At Risk",color:"#d97706",bg:"#fffbeb"},{k:"BREACHED",l:"Breached",color:"#dc2626",bg:"#fff1f2"}].map(({k,l,color,bg})=>(
+        <div key={k} style={{padding:"7px 4px",borderRadius:6,background:bg,textAlign:"center"}}>
+          <div style={{fontSize:18,fontWeight:800,color,fontFamily:"'DM Mono',monospace",lineHeight:1}}>{c[k]}</div>
+          <div style={{fontSize:9,color,marginTop:2,letterSpacing:"0.05em"}}>{l}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── DAG FLOW ──────────────────────────────────────────────────────────────────
+function DagFlowView({ steps, onSelectStep, selectedStep }) {
+  const levels={};
+  const assignLevel=(id,vis=new Set())=>{
+    if(levels[id]!==undefined)return levels[id];
+    if(vis.has(id))return 0; vis.add(id);
+    const step=steps.find(s=>s.stepId===id);
+    if(!step||step.depends.length===0){levels[id]=0;return 0;}
+    const mx=Math.max(...step.depends.map(d=>assignLevel(d,new Set(vis))));
+    levels[id]=mx+1;return levels[id];
+  };
+  steps.forEach(s=>assignLevel(s.stepId));
+  const maxLevel=Math.max(0,...Object.values(levels));
+  const cols=Array.from({length:maxLevel+1},(_,i)=>steps.filter(s=>levels[s.stepId]===i));
+  const NW=155,NH=72,CG=60,RG=10;
+  const maxColH=Math.max(...cols.map(col=>col.length*NH+Math.max(0,col.length-1)*RG));
+  const np={};
+  cols.forEach((col,ci)=>{
+    const colH=col.length*NH+Math.max(0,col.length-1)*RG;
+    const off=(maxColH-colH)/2;
+    col.forEach((step,ri)=>{np[step.stepId]={x:ci*(NW+CG),y:off+ri*(NH+RG)};});
+  });
+  const totalW=(maxLevel+1)*(NW+CG)-CG+4;
+  const edges=[];
+  steps.forEach(step=>{
+    step.depends.forEach(dep=>{
+      const f=np[dep],t=np[step.stepId];
+      if(f&&t){const x1=f.x+NW,y1=f.y+NH/2,x2=t.x,y2=t.y+NH/2,mx=(x1+x2)/2;
+        const c=S_CFG[step.status]||S_CFG.PENDING;
+        edges.push({x1,y1,x2,y2,mx,color:c.color,pending:step.status==="PENDING"});}
+    });
+  });
+  return (
+    <div style={{overflowX:"auto",paddingBottom:4}}>
+      <div style={{position:"relative",width:totalW,height:maxColH+4,minHeight:100}}>
+        <svg style={{position:"absolute",inset:0,width:totalW,height:maxColH+4,overflow:"visible",pointerEvents:"none"}}>
+          {edges.map((e,i)=><path key={i} d={`M ${e.x1} ${e.y1} C ${e.mx} ${e.y1}, ${e.mx} ${e.y2}, ${e.x2} ${e.y2}`} fill="none" stroke={e.color} strokeWidth={1.5} strokeOpacity={e.pending?0.2:0.45} strokeDasharray={e.pending?"5 3":"none"}/>)}
+        </svg>
+        {steps.map(step=>{
+          const pos=np[step.stepId]; if(!pos)return null;
+          const cfg=S_CFG[step.status]||S_CFG.PENDING;
+          const isSel=selectedStep?.stepId===step.stepId;
+          return (
+            <div key={step.stepId} onClick={()=>onSelectStep(isSel?null:step)} style={{
+              position:"absolute",left:pos.x,top:pos.y,width:NW,height:NH,
+              background:isSel?"#eff6ff":"#fff",
+              border:`1.5px solid ${isSel?"#3b82f6":cfg.border}`,
+              borderRadius:8,padding:"9px 11px",cursor:"pointer",boxSizing:"border-box",transition:"all .15s",
+              boxShadow:isSel?"0 0 0 3px rgba(59,130,246,0.15)":step.status==="FAILED"?"0 0 0 2px rgba(220,38,38,0.12)":"0 1px 3px rgba(15,23,42,0.06)",
+            }}>
+              <div style={{fontSize:11,fontWeight:600,color:"#0f172a",marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{step.name}</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <ExecChip executor={step.executor}/>
+                <StatusChip status={step.status} small/>
+              </div>
+              {step.status==="RUNNING"&&<div style={{marginTop:5,height:2,background:"#e2e8f0",borderRadius:1,overflow:"hidden"}}><div style={{height:"100%",width:"35%",background:"#d97706",animation:"progress-slide 1.8s ease-in-out infinite"}}/></div>}
+              {step.status==="SUCCEEDED"&&step.durationSeconds&&<div style={{marginTop:3,fontSize:9,color:"#94a3b8",fontFamily:"'DM Mono',monospace"}}>✓ {fmtDuration(step.durationSeconds)}</div>}
+              {step.status==="FAILED"&&<div style={{marginTop:3,fontSize:9,color:"#dc2626",fontFamily:"'DM Mono',monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>✗ {step.errorCode||"FAILED"}</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── STEP LIST ─────────────────────────────────────────────────────────────────
+function StepListView({ steps, onSelect, selected, role }) {
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      {steps.map((step,i)=>{
+        const cfg=S_CFG[step.status]||S_CFG.PENDING;
+        const isSel=selected?.stepId===step.stepId;
+        return (
+          <div key={step.stepId} onClick={()=>onSelect(isSel?null:step)} style={{display:"grid",gridTemplateColumns:"28px 1fr auto auto",gap:"0 12px",alignItems:"center",padding:"9px 12px",background:isSel?"#eff6ff":"#fff",border:`1.5px solid ${isSel?"#3b82f6":"#e2e8f0"}`,borderRadius:7,cursor:"pointer",transition:"all .12s",boxShadow:step.status==="FAILED"?"0 0 0 2px rgba(220,38,38,0.1)":"0 1px 2px rgba(15,23,42,0.04)"}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+              <span style={{width:22,height:22,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:cfg.bg,border:`1.5px solid ${cfg.border}`,fontSize:9,fontWeight:700,color:cfg.color,fontFamily:"'DM Mono',monospace"}}>{i+1}</span>
+              {i<steps.length-1&&<div style={{width:1,height:8,background:"#e2e8f0"}}/>}
+            </div>
+            <div>
+              <div style={{fontSize:12,fontWeight:600,color:"#0f172a"}}>{step.name}</div>
+              <div style={{display:"flex",gap:6,marginTop:4,alignItems:"center",flexWrap:"wrap"}}>
+                <ExecChip executor={step.executor}/>
+                {role!=="BUSINESS"&&<span style={{fontSize:9,color:"#94a3b8",fontFamily:"'DM Mono',monospace"}}>{step.jobId}</span>}
+                {step.status==="FAILED"&&step.errorCode&&<span style={{fontSize:9,color:"#dc2626",fontFamily:"'DM Mono',monospace"}}>{step.errorCode}</span>}
+              </div>
+            </div>
+            <div style={{fontFamily:"'DM Mono',monospace",textAlign:"right"}}>
+              {step.durationSeconds?<span style={{fontSize:11,color:"#64748b"}}>{fmtDuration(step.durationSeconds)}</span>:step.status==="RUNNING"?<span style={{fontSize:10,color:"#d97706",animation:"pulse-dot 1.4s ease-in-out infinite"}}>running…</span>:null}
+            </div>
+            <StatusChip status={step.status} small/>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── STEP DETAIL PANEL ─────────────────────────────────────────────────────────
+function StepDetailPanel({ step, onClose, role, env }) {
+  const [confirm,setConfirm]=useState(null);
+  const [done,setDone]=useState(null);
+  const write=canWrite(role,env);
+  const isProd=env==="PROD";
+
+  const doAction=action=>{
+    if(confirm===action){setDone(action);setConfirm(null);setTimeout(()=>setDone(null),3000);}
+    else{setConfirm(action);setTimeout(()=>setConfirm(null),3500);}
+  };
+
+  const rows=[
+    {l:"Step ID",v:step.stepId},{l:"Job ID",v:step.jobId||"—"},
+    {l:"Executor",v:<ExecChip executor={step.executor}/>},
+    {l:"Status",v:<StatusChip status={step.status}/>},
+    {l:"Start",v:step.startTime||"—"},{l:"End",v:step.endTime||"—"},
+    {l:"Duration",v:fmtDuration(step.durationSeconds)},
+    {l:"Retries",v:step.retryAttempts??0},
+    {l:"Row Count",v:fmtRows(step.rowCount)},{l:"Bytes Out",v:fmtBytes(step.bytesWritten)},
+    {l:"Depends On",v:step.depends.length?step.depends.join(", "):"None (root)"},
+  ];
+
+  return (
+    <div className="slide-right" style={{background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:10,padding:"16px",boxShadow:"0 4px 16px rgba(15,23,42,0.08)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{step.name}</div>
+          <div style={{fontSize:9,color:"#94a3b8",fontFamily:"'DM Mono',monospace",marginTop:2}}>{step.stepId}</div>
+        </div>
+        <button onClick={onClose} style={{background:"none",border:"none",fontSize:16,color:"#94a3b8",padding:"0 2px"}}>✕</button>
+      </div>
+      {step.status==="FAILED"&&step.errorMsg&&(
+        <div style={{background:"#fff1f2",border:"1px solid #fecaca",borderRadius:6,padding:"9px 11px",marginBottom:11}}>
+          <div style={{fontSize:10,fontWeight:700,color:"#dc2626",fontFamily:"'DM Mono',monospace",marginBottom:3}}>{step.errorCode}</div>
+          <div style={{fontSize:11,color:"#991b1b",lineHeight:1.5}}>{step.errorMsg}</div>
+        </div>
+      )}
+      <div style={{display:"flex",flexDirection:"column",gap:3,marginBottom:12}}>
+        {rows.map(r=>(
+          <div key={r.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",background:"#f8fafc",borderRadius:4,gap:8}}>
+            <span style={{fontSize:10,color:"#64748b",whiteSpace:"nowrap"}}>{r.l}</span>
+            <span style={{fontSize:10,color:"#0f172a",fontFamily:"'DM Mono',monospace",textAlign:"right"}}>{r.v}</span>
+          </div>
+        ))}
+      </div>
+      {(role==="L3"||role==="PROD_SUPPORT")&&(
+        <>
+          <div style={{fontSize:9,color:"#94a3b8",fontWeight:700,letterSpacing:"0.1em",marginBottom:6}}>EXECUTOR LOG</div>
+          <div style={{background:"#0f172a",borderRadius:6,padding:"10px 11px",fontFamily:"'DM Mono',monospace",fontSize:10,lineHeight:1.9,maxHeight:130,overflowY:"auto",marginBottom:12}}>
+            {step.status==="FAILED"?(<><span style={{color:"#4ade80"}}>[{step.startTime}] → {step.executor} {step.jobId}</span><br/><span style={{color:"#94a3b8"}}>[+00:32] RUNNING</span><br/><span style={{color:"#fbbf24"}}>[+02:00] Timeout warn</span><br/><span style={{color:"#f87171"}}>[+07:01] FAILED — max retries</span></>)
+            :step.status==="RUNNING"?(<><span style={{color:"#4ade80"}}>[{step.startTime}] → {step.executor}</span><br/><span style={{color:"#94a3b8"}}>[+00:31] RUNNING</span><br/><span style={{color:"#fbbf24",animation:"pulse-dot 1.4s ease-in-out infinite"}}>[+00:46] 41% ···</span></>)
+            :(<><span style={{color:"#4ade80"}}>[{step.startTime}] → {step.executor}</span><br/><span style={{color:"#4ade80"}}>[{step.endTime}] SUCCEEDED · {fmtRows(step.rowCount)} rows</span></>)}
+          </div>
+        </>
+      )}
+      {/* Actions */}
+      {role==="PROD_SUPPORT"&&(
+        <>
+          <div style={{fontSize:9,color:"#94a3b8",fontWeight:700,letterSpacing:"0.1em",marginBottom:6}}>ACTIONS</div>
+          {done?(<div style={{padding:"7px 12px",borderRadius:6,background:"#f0fdf4",border:"1px solid #bbf7d0",fontSize:11,fontWeight:600,color:"#16a34a"}}>✓ {done==="kill"?"Kill signal sent":"Retry submitted"}</div>):(
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={()=>doAction("kill")} style={{flex:1,padding:"7px 0",borderRadius:6,fontSize:11,fontWeight:700,background:confirm==="kill"?"#dc2626":"#fff",border:`1.5px solid ${confirm==="kill"?"#dc2626":"#fecaca"}`,color:confirm==="kill"?"#fff":"#dc2626"}}>{confirm==="kill"?"Confirm Kill?":"Force Kill"}</button>
+              <button onClick={()=>doAction("retry")} style={{flex:1,padding:"7px 0",borderRadius:6,fontSize:11,fontWeight:700,background:confirm==="retry"?"#d97706":"#fff",border:`1.5px solid ${confirm==="retry"?"#d97706":"#fde68a"}`,color:confirm==="retry"?"#fff":"#d97706"}}>{confirm==="retry"?"Confirm Retry?":"Retry Step"}</button>
+            </div>
+          )}
+        </>
+      )}
+      {role==="L3"&&(
+        <>
+          <div style={{fontSize:9,color:"#94a3b8",fontWeight:700,letterSpacing:"0.1em",marginBottom:6}}>ACTIONS</div>
+          {isProd?(
+            <div style={{padding:"8px 12px",borderRadius:6,background:"#fff1f2",border:"1px solid #fecaca",fontSize:11,color:"#991b1b",display:"flex",alignItems:"center",gap:7}}>
+              🔒 Write actions disabled in <strong>PROD</strong> for L3. Contact Prod Support.
+            </div>
+          ):done?(
+            <div style={{padding:"7px 12px",borderRadius:6,background:"#f0fdf4",border:"1px solid #bbf7d0",fontSize:11,fontWeight:600,color:"#16a34a"}}>✓ {done==="kill"?"Kill sent":"Retry submitted"}</div>
+          ):(
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={()=>doAction("kill")} style={{flex:1,padding:"7px 0",borderRadius:6,fontSize:11,fontWeight:700,background:confirm==="kill"?"#dc2626":"#fff",border:`1.5px solid ${confirm==="kill"?"#dc2626":"#fecaca"}`,color:confirm==="kill"?"#fff":"#dc2626"}}>{confirm==="kill"?"Confirm?":"Force Kill"}</button>
+              <button onClick={()=>doAction("retry")} style={{flex:1,padding:"7px 0",borderRadius:6,fontSize:11,fontWeight:700,background:confirm==="retry"?"#d97706":"#fff",border:`1.5px solid ${confirm==="retry"?"#d97706":"#fde68a"}`,color:confirm==="retry"?"#fff":"#d97706"}}>{confirm==="retry"?"Confirm?":"Retry Step"}</button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── REPORTS VIEW ──────────────────────────────────────────────────────────────
+function ReportsView({ followed, onToggle }) {
+  const [catFilter,setCatFilter]=useState("All");
+  const [showAll,setShowAll]=useState(false);
+  const cats=["All",...Array.from(new Set(REPORTS.map(r=>r.category)))];
+  const pipMap={}; PIPELINES.forEach(p=>pipMap[p.id]=p);
+
+  const visible=REPORTS.filter(r=>{
+    if(catFilter!=="All"&&r.category!==catFilter)return false;
+    if(!showAll&&followed.size>0)return followed.has(r.id);
+    return true;
+  });
+
+  return (
+    <div style={{maxWidth:900}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontSize:17,fontWeight:700,color:"#0f172a"}}>Reports</div>
+          <div style={{fontSize:12,color:"#64748b",marginTop:2}}>
+            {followed.size>0?`${followed.size} followed · `:"All "}{REPORTS.length} reports across all pipelines
+          </div>
+        </div>
+        <button onClick={()=>setShowAll(v=>!v)} style={{padding:"6px 14px",borderRadius:7,fontSize:12,fontWeight:600,background:showAll?"#0f172a":"#fff",color:showAll?"#fff":"#0f172a",border:"1.5px solid "+(showAll?"#0f172a":"#e2e8f0")}}>
+          {showAll?"★ My Reports":"⊞ All Reports"}
+        </button>
+      </div>
+
+      {followed.size===0&&!showAll&&(
+        <div style={{background:"#f8fafc",border:"2px dashed #e2e8f0",borderRadius:10,padding:"32px 24px",textAlign:"center",marginBottom:18}}>
+          <div style={{fontSize:28,marginBottom:10}}>📋</div>
+          <div style={{fontSize:14,fontWeight:700,color:"#0f172a",marginBottom:5}}>No followed reports yet</div>
+          <div style={{fontSize:12,color:"#64748b",marginBottom:16}}>Follow reports to get a personalised view of the outputs you care about.</div>
+          <button onClick={()=>setShowAll(true)} style={{padding:"8px 20px",borderRadius:7,background:"#4338ca",color:"#fff",border:"none",fontSize:13,fontWeight:600}}>Browse All Reports</button>
+        </div>
+      )}
+
+      {/* Category filter */}
+      <div style={{display:"flex",gap:5,marginBottom:14,flexWrap:"wrap"}}>
+        {cats.map(c=>(
+          <button key={c} onClick={()=>setCatFilter(c)} style={{padding:"4px 12px",borderRadius:6,border:`1.5px solid ${catFilter===c?"#4338ca":"#e2e8f0"}`,background:catFilter===c?"#eff6ff":"#fff",color:catFilter===c?"#4338ca":"#64748b",fontSize:11,fontWeight:600}}>{c}</button>
+        ))}
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {visible.map(r=>{
+          const pip=pipMap[r.pipeline];
+          const isFol=followed.has(r.id);
+          return (
+            <div key={r.id} style={{background:"#fff",border:`1.5px solid ${isFol?"#c7d2fe":"#e2e8f0"}`,borderRadius:9,padding:"14px 16px",boxShadow:isFol?"0 0 0 3px rgba(67,56,202,0.07)":"0 1px 3px rgba(15,23,42,0.04)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:5,flexWrap:"wrap"}}>
+                    <span style={{fontSize:13,fontWeight:700,color:"#0f172a"}}>{r.name}</span>
+                    <span style={{fontSize:9,color:"#94a3b8",background:"#f1f5f9",padding:"1px 6px",borderRadius:3,fontFamily:"'DM Mono',monospace"}}>{r.category}</span>
+                    <RptChip status={r.status}/>
+                    {isFol&&<span style={{fontSize:10,color:"#4338ca",fontWeight:600}}>★ Following</span>}
+                  </div>
+                  <div style={{fontSize:12,color:"#64748b",marginBottom:9,lineHeight:1.5}}>{r.description}</div>
+                  <div style={{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}>
+                    <span style={{fontSize:10,color:"#94a3b8"}}>📦 <span style={{color:"#475569",fontFamily:"'DM Mono',monospace",fontSize:9}}>{r.pipeline}</span></span>
+                    <span style={{fontSize:10,color:"#94a3b8"}}>⤷ <span style={{color:"#475569",fontFamily:"'DM Mono',monospace",fontSize:9}}>{r.step}</span></span>
+                    <span style={{fontSize:10,color:"#94a3b8"}}>🕐 {r.lastGenerated}</span>
+                    {pip&&<div style={{display:"flex",gap:5,alignItems:"center"}}><StatusChip status={pip.lastRun.status} small/><SlaChip status={pip.slaStatus}/></div>}
+                  </div>
+                </div>
+                <button onClick={()=>onToggle(r.id)} style={{flexShrink:0,padding:"6px 12px",borderRadius:7,fontSize:11,fontWeight:700,background:isFol?"#4338ca":"#f8fafc",color:isFol?"#fff":"#64748b",border:`1.5px solid ${isFol?"#4338ca":"#e2e8f0"}`}}>
+                  {isFol?"★ Following":"☆ Follow"}
+                </button>
+              </div>
+              {pip&&(
+                <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #f1f5f9",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <span style={{fontSize:10,color:"#94a3b8"}}>Pipeline</span>
+                  <div style={{flex:1,minWidth:80}}><StepBar steps={pip.steps}/></div>
+                  <span style={{fontSize:10,color:"#64748b",fontFamily:"'DM Mono',monospace"}}>{pip.steps.complete}/{Object.values(pip.steps).reduce((a,b)=>a+b,0)} steps</span>
+                  <span style={{fontSize:10,color:"#94a3b8"}}>SLA {pip.slaDeadline}</span>
+                  {pip.estimatedCompletion&&<span style={{fontSize:10,color:"#64748b"}}>Est. {pip.estimatedCompletion}</span>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {visible.length===0&&(
+          <div style={{textAlign:"center",padding:"32px",color:"#94a3b8",fontSize:13}}>No reports match current filter.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── PIPELINES VIEW ────────────────────────────────────────────────────────────
+function PipelinesView({ role, env, followed }) {
+  const [selPip,setSelPip]=useState(PIPELINES[0]);
+  const [selStep,setSelStep]=useState(null);
+  const [view,setView]=useState("DAG");
+  const [execFilter,setExecFilter]=useState(null);
+  const [triggerPip,setTriggerPip]=useState(null);
+  const [triggered,setTriggered]=useState(new Set());
+  const write=canWrite(role,env);
+  const run=RUN_DETAILS[selPip?.id];
+  const allSteps=run?.steps||[];
+  const filtered=execFilter?allSteps.filter(s=>s.executor===execFilter):allSteps;
+  const selectPip=p=>{setSelPip(p);setSelStep(null);setExecFilter(null);};
+  const linkedRpts=REPORTS.filter(r=>r.pipeline===selPip?.id&&followed.has(r.id));
+
+  return (
+    <div style={{display:"flex",flex:1,overflow:"hidden",minHeight:0}}>
+      {triggerPip&&<TriggerModal pipeline={triggerPip} env={env} onClose={()=>setTriggerPip(null)} onConfirm={()=>setTriggered(s=>new Set([...s,triggerPip.id]))}/>}
+
+      {/* Sidebar */}
+      <div style={{width:284,flexShrink:0,borderRight:"1px solid #e2e8f0",background:"#fff",padding:"14px 10px",display:"flex",flexDirection:"column",gap:10,overflowY:"auto"}}>
+        <div>
+          <div style={{fontSize:9,color:"#94a3b8",letterSpacing:"0.12em",fontWeight:700,marginBottom:7}}>SLA SUMMARY · EOD</div>
+          <SlaSummaryStrip pipelines={PIPELINES}/>
+        </div>
+        <div style={{height:1,background:"#f1f5f9"}}/>
+        <div>
+          <div style={{fontSize:9,color:"#94a3b8",letterSpacing:"0.12em",fontWeight:700,marginBottom:7}}>PIPELINES · {PIPELINES.length}</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {PIPELINES.map(p=><PipelineCard key={p.id} pipeline={p} selected={selPip?.id===p.id} onClick={()=>selectPip(p)} role={role} env={env} onTrigger={pip=>setTriggerPip(pip)}/>)}
+          </div>
+        </div>
+      </div>
+
+      {/* Main */}
+      <div style={{flex:1,padding:"18px 20px",display:"flex",flexDirection:"column",gap:13,overflowY:"auto"}}>
+        {selPip&&run&&(
+          <>
+            {/* Run header */}
+            <div style={{background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:10,padding:"15px 18px",boxShadow:"0 1px 4px rgba(15,23,42,0.05)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:10}}>
+                <div>
+                  <div style={{fontSize:17,fontWeight:700,color:"#0f172a",marginBottom:5}}>{selPip.name}</div>
+                  <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}>
+                    <StatusChip status={selPip.lastRun.status}/>
+                    <SlaChip status={selPip.slaStatus}/>
+                    {role!=="BUSINESS"&&<><span style={{fontSize:10,color:"#94a3b8",fontFamily:"'DM Mono',monospace"}}>{run.runId}</span><span style={{fontSize:10,color:"#94a3b8",fontFamily:"'DM Mono',monospace"}}>git:{run.gitSha}</span></>}
+                    {triggered.has(selPip.id)&&<span style={{fontSize:10,color:"#16a34a",fontFamily:"'DM Mono',monospace"}}>⚡ Manual trigger queued</span>}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}}>
+                  {[{label:"START",value:selPip.lastRun.startTime},{label:"SLA",value:selPip.slaDeadline},{label:"EST DONE",value:selPip.estimatedCompletion||"—"},{label:"TRIGGER",value:run.triggerType}].map(({label,value})=>(
+                    <div key={label} style={{textAlign:"center"}}>
+                      <div style={{fontSize:8,color:"#94a3b8",letterSpacing:"0.1em",marginBottom:3}}>{label}</div>
+                      <div style={{fontSize:12,color:"#0f172a",fontFamily:"'DM Mono',monospace"}}>{value}</div>
+                    </div>
+                  ))}
+                  {write&&role!=="BUSINESS"&&(
+                    <button onClick={()=>setTriggerPip(selPip)} style={{padding:"6px 16px",borderRadius:7,border:"none",background:"#4338ca",color:"#fff",fontSize:12,fontWeight:700}}>▶ Trigger</button>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                  <span style={{fontSize:10,color:"#64748b"}}>{selPip.steps.complete}/{Object.values(selPip.steps).reduce((a,b)=>a+b,0)} steps complete</span>
+                  {selPip.slaStatus==="ON_TRACK"&&selPip.bufferMinutes>0&&<span style={{fontSize:10,color:"#16a34a"}}>+{selPip.bufferMinutes}m buffer</span>}
+                  {selPip.slaStatus==="BREACHED"&&<span style={{fontSize:10,color:"#dc2626"}}>SLA breached by {Math.abs(selPip.bufferMinutes)}m</span>}
+                  {selPip.slaStatus==="AT_RISK"&&<span style={{fontSize:10,color:"#d97706"}}>{selPip.bufferMinutes}m buffer remaining</span>}
+                </div>
+                <StepBar steps={selPip.steps}/>
+              </div>
+            </div>
+
+            {/* Linked reports banner */}
+            {linkedRpts.length>0&&(
+              <div style={{background:"#eff6ff",border:"1.5px solid #bfdbfe",borderRadius:8,padding:"10px 14px"}}>
+                <div style={{fontSize:10,color:"#2563eb",fontWeight:700,marginBottom:7}}>📋 {linkedRpts.length} followed report{linkedRpts.length>1?"s":""} depend on this pipeline</div>
+                <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                  {linkedRpts.map(r=>(
+                    <div key={r.id} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",border:"1px solid #bfdbfe",borderRadius:5,padding:"4px 10px"}}>
+                      <RptChip status={r.status}/>
+                      <span style={{fontSize:11,color:"#1e3a5f",fontWeight:500}}>{r.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Controls */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+              <div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
+                <span style={{fontSize:10,color:"#94a3b8"}}>EXECUTOR</span>
+                {[null,"QRM","DATABRICKS","AUTOSYS"].map(e=>{
+                  const ec=e?EXEC_CFG[e]:null;
+                  const isAct=execFilter===e;
+                  return(<button key={e||"ALL"} onClick={()=>setExecFilter(e)} style={{padding:"4px 10px",borderRadius:5,fontSize:10,fontWeight:600,background:isAct?(ec?ec.bg:"#e2e8f0"):"#fff",color:isAct?(ec?ec.color:"#0f172a"):"#64748b",border:`1.5px solid ${isAct?(ec?ec.border:"#94a3b8"):"#e2e8f0"}`}}>{e||"ALL"}</button>);
+                })}
+              </div>
+              <div style={{display:"flex",background:"#f1f5f9",borderRadius:6,padding:2,gap:1}}>
+                {[["DAG","⬡ Flow"],["LIST","≡ List"]].map(([v,lbl])=>(
+                  <button key={v} onClick={()=>setView(v)} style={{padding:"4px 12px",borderRadius:4,fontSize:10,fontWeight:700,background:view===v?"#fff":"transparent",color:view===v?"#0f172a":"#94a3b8",border:view===v?"1px solid #e2e8f0":"none",boxShadow:view===v?"0 1px 3px rgba(15,23,42,0.06)":"none"}}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Flow + detail */}
+            <div style={{display:"grid",gridTemplateColumns:selStep?"1fr 300px":"1fr",gap:13,alignItems:"start"}}>
+              <div style={{background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:10,padding:"16px 18px",boxShadow:"0 1px 4px rgba(15,23,42,0.04)"}}>
+                <div style={{fontSize:9,color:"#94a3b8",letterSpacing:"0.1em",fontWeight:700,marginBottom:13}}>
+                  {view==="DAG"?"JOB DEPENDENCY FLOW":"STEP SEQUENCE"}
+                  {execFilter&&<span style={{color:EXEC_CFG[execFilter]?.color}}> · {execFilter} ONLY</span>}
+                </div>
+                {view==="DAG"?<DagFlowView steps={filtered} onSelectStep={setSelStep} selectedStep={selStep}/>:<StepListView steps={filtered} onSelect={setSelStep} selected={selStep} role={role}/>}
+              </div>
+              {selStep&&<StepDetailPanel step={selStep} onClose={()=>setSelStep(null)} role={role} env={env}/>}
+            </div>
+
+            {/* Audit */}
+            {(role==="L3"||role==="PROD_SUPPORT")&&(
+              <div style={{background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:8,padding:"10px 16px",display:"flex",gap:20,alignItems:"center",flexWrap:"wrap",boxShadow:"0 1px 3px rgba(15,23,42,0.04)"}}>
+                <span style={{fontSize:9,color:"#94a3b8",fontWeight:700,letterSpacing:"0.1em"}}>AUDIT</span>
+                {[{l:"Triggered By",v:run.triggeredBy},{l:"Type",v:run.triggerType},{l:"Git SHA",v:run.gitSha},{l:"Biz Date",v:run.businessDate},{l:"Run ID",v:run.runId}].map(({l,v})=>(
+                  <div key={l}><div style={{fontSize:8,color:"#94a3b8",letterSpacing:"0.08em"}}>{l}</div><div style={{fontSize:11,color:"#0f172a",fontFamily:"'DM Mono',monospace"}}>{v}</div></div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN APP ──────────────────────────────────────────────────────────────────
+function App() {
+  const [env,setEnv]=useState("PROD");
+  const [role,setRole]=useState("PROD_SUPPORT");
+  const [tab,setTab]=useState("PIPELINES");
+  const [clock,setClock]=useState(nowStr());
+  const [followed,setFollowed]=useState(new Set(["rpt.ftp.daily_interest","rpt.ftp.transfer_pricing","rpt.ftp.funds_cost"]));
+  useEffect(()=>{const t=setInterval(()=>setClock(nowStr()),1000);return()=>clearInterval(t);},[]);
+  const toggleFollow=id=>setFollowed(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
+  const ec=ENVS[env];
+  const write=canWrite(role,env);
+
+  return (
+    <div style={{fontFamily:"'DM Sans',sans-serif",background:"#f1f5f9",minHeight:"100vh",display:"flex",flexDirection:"column",height:"100vh"}}>
+
+      {/* ENV BANNER */}
+      <div style={{background:ec.bg,borderBottom:`2px solid ${ec.border}`,padding:"5px 22px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <span style={{fontSize:11,fontWeight:800,letterSpacing:"0.1em",color:ec.color,fontFamily:"'DM Mono',monospace",background:"white",padding:"2px 8px",borderRadius:3,border:`1px solid ${ec.border}`}}>{env}</span>
+          <span style={{fontSize:11,color:ec.color}}>{ec.text}</span>
+          {env==="PROD"&&role==="L3"&&<span style={{fontSize:10,color:"#dc2626",fontWeight:700,background:"#fff1f2",padding:"1px 7px",borderRadius:3,border:"1px solid #fecaca"}}>⚠ Write access restricted for L3 in PROD</span>}
+          {env==="PROD"&&role==="PROD_SUPPORT"&&<span style={{fontSize:10,color:"#16a34a",fontWeight:700}}>✓ Prod Support has write access in PROD</span>}
+        </div>
+        <div style={{display:"flex",gap:4}}>
+          {Object.entries(ENVS).map(([key,cfg])=>(
+            <button key={key} onClick={()=>setEnv(key)} style={{padding:"2px 9px",borderRadius:4,fontSize:10,fontWeight:800,letterSpacing:"0.07em",fontFamily:"'DM Mono',monospace",background:env===key?cfg.color:"transparent",color:env===key?"#fff":cfg.color,border:`1.5px solid ${env===key?cfg.color:cfg.border}`}}>{key}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* NAV */}
+      <div style={{borderBottom:"1px solid #e2e8f0",background:"#fff",padding:"0 22px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 4px rgba(15,23,42,0.05)",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",height:52}}>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{width:32,height:32,borderRadius:8,background:"linear-gradient(135deg,#4338ca 0%,#7c3aed 100%)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:900,color:"#fff",flexShrink:0}}>Q</div>
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:"#0f172a",letterSpacing:"-0.01em"}}>QRM Orchestration Monitor</div>
+                <div style={{fontSize:9,color:"#94a3b8",fontFamily:"'DM Mono',monospace",letterSpacing:"0.08em"}}>TREASURY TECHNOLOGY</div>
+              </div>
+            </div>
+            <div style={{width:1,height:28,background:"#e2e8f0"}}/>
+            <div style={{fontSize:11,color:"#64748b",fontFamily:"'DM Mono',monospace"}}>BIZ DATE <span style={{color:"#0f172a"}}>2026-04-14</span></div>
+            <div style={{display:"flex",gap:1}}>
+              {[{key:"PIPELINES",label:"Pipelines"},{key:"REPORTS",label:`Reports${followed.size>0?` (${followed.size})`:""}` }].map(({key,label})=>(
+                <button key={key} onClick={()=>setTab(key)} style={{padding:"6px 14px",borderRadius:6,fontSize:12,fontWeight:600,background:tab===key?"#f1f5f9":"transparent",color:tab===key?"#0f172a":"#64748b",border:"none"}}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            {/* Role */}
+            <div style={{display:"flex",background:"#f1f5f9",borderRadius:7,padding:2,gap:1}}>
+              {[{k:"BUSINESS",l:"Business"},{k:"PROD_SUPPORT",l:"Prod Support"},{k:"L3",l:"L3"}].map(r=>(
+                <button key={r.k} onClick={()=>setRole(r.k)} style={{padding:"4px 11px",borderRadius:5,border:"none",fontSize:11,fontWeight:600,background:role===r.k?"#fff":"transparent",color:role===r.k?"#0f172a":"#94a3b8",boxShadow:role===r.k?"0 1px 3px rgba(15,23,42,0.08)":"none"}}>{r.l}</button>
+              ))}
+            </div>
+            {/* Permission pill */}
+            {role!=="BUSINESS"&&(
+              <div style={{padding:"3px 10px",borderRadius:20,fontSize:10,fontWeight:600,background:write?"#f0fdf4":"#fff1f2",color:write?"#16a34a":"#dc2626",border:`1px solid ${write?"#bbf7d0":"#fecaca"}`}}>
+                {write?"🔓 Read + Write":"🔒 Read Only"}
+              </div>
+            )}
+            {/* Clock */}
+            <div style={{fontSize:12,fontFamily:"'DM Mono',monospace",color:"#64748b",padding:"3px 9px",border:"1px solid #e2e8f0",borderRadius:5,background:"#f8fafc"}}>{clock}</div>
+            {/* Live */}
+            <div style={{display:"flex",alignItems:"center",gap:5}}>
+              <span style={{width:6,height:6,borderRadius:"50%",background:"#16a34a",animation:"pulse-dot 2s ease-in-out infinite",display:"inline-block"}}/>
+              <span style={{fontSize:10,color:"#64748b"}}>LIVE</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* BODY */}
+      {tab==="PIPELINES"
+        ?<PipelinesView role={role} env={env} followed={followed}/>
+        :<div style={{flex:1,padding:"20px 24px",overflowY:"auto"}}><ReportsView followed={followed} onToggle={toggleFollow}/></div>
+      }
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
