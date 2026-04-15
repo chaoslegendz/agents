@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Operating Model — Treasury Technology</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f2ed;
+    --surface: #ffffff;
+    --surface2: #f9f8f5;
+    --border: #e2ddd6;
+    --border2: #d4cfc7;
+    --teal: #007a6b;
+    --teal-dim: #007a6b18;
+    --teal-mid: #007a6b35;
+    --amber: #b85c00;
+    --amber-dim: #b85c0015;
+    --blue: #1a5ea8;
+    --blue-dim: #1a5ea815;
+    --purple: #6b3fa0;
+    --purple-dim: #6b3fa015;
+    --red: #c0392b;
+    --red-dim: #c0392b15;
+    --text: #1a1814;
+    --text-muted: #6b6560;
+    --text-dim: #aaa49e;
+    --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.04);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.05);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  code, .mono {
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 22px 32px 18px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+  }
+  .header-eyebrow {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; letter-spacing: 0.15em;
+    color: var(--text-dim); margin-bottom: 6px;
+  }
+  .header-eyebrow .tag {
+    background: var(--teal-dim);
+    color: var(--teal);
+    padding: 2px 8px; border-radius: 3px;
+    font-weight: 500;
+  }
+  .header h1 {
+    font-size: 21px; font-weight: 700; letter-spacing: -0.5px;
+    color: var(--text);
+  }
+  .header h1 span {
+    font-weight: 300; font-size: 14px; color: var(--text-muted); margin-left: 10px;
+  }
+
+  /* NAV */
+  .nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; overflow-x: auto; gap: 0;
+    position: sticky; top: 73px; z-index: 99;
+  }
+  .nav button {
+    background: none; border: none; cursor: pointer;
+    padding: 12px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; letter-spacing: 0.12em;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .nav button:hover { color: var(--text-muted); }
+  .nav button.active {
+    color: var(--teal);
+    border-bottom-color: var(--teal);
+  }
+
+  /* MAIN */
+  .main { padding: 32px; max-width: 980px; margin: 0 auto; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+  .card-header {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; letter-spacing: 0.15em;
+    color: var(--text-dim); margin-bottom: 14px;
+  }
+
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
+
+  /* OVERVIEW */
+  .principle-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    border-left-width: 3px;
+    box-shadow: var(--shadow);
+  }
+  .principle-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .principle-value { font-size: 13px; line-height: 1.5; color: var(--text); }
+
+  .chain-visual {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px 22px;
+    box-shadow: var(--shadow); margin-bottom: 16px;
+  }
+  .chain-nodes { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin-top: 14px; }
+  .chain-node {
+    text-align: center;
+    border-radius: 8px;
+    padding: 10px 18px; min-width: 100px;
+    border: 1px solid;
+  }
+  .chain-node .role-abbr { font-size: 13px; font-weight: 700; }
+  .chain-node .artifact { font-size: 10px; font-family: 'DM Mono', monospace; margin-top: 3px; }
+  .chain-arrow { padding: 0 8px; font-size: 18px; color: var(--border2); }
+
+  /* MATURITY */
+  .maturity-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .maturity-levels { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .maturity-btn {
+    background: none; border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px;
+    cursor: pointer; text-align: left; min-width: 140px;
+    transition: all 0.15s;
+  }
+  .maturity-btn.active { border-width: 2px; }
+  .maturity-level-title { font-size: 13px; font-weight: 600; }
+  .maturity-level-desc { font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+  .maturity-next {
+    margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-muted); line-height: 1.5;
+  }
+
+  /* ROLES */
+  .role-accordion {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.2s;
+  }
+  .role-accordion.open { box-shadow: var(--shadow-md); }
+  .role-header {
+    width: 100%; background: none; border: none; cursor: pointer;
+    padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: background 0.15s;
+  }
+  .role-header:hover { background: var(--surface2); }
+  .role-header-left { display: flex; align-items: center; gap: 14px; }
+  .role-badge {
+    border-radius: 4px; padding: 4px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; font-weight: 500;
+    border: 1px solid;
+  }
+  .role-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .role-toggle { font-size: 20px; font-weight: 300; }
+  .role-body {
+    display: none; padding: 0 20px 20px;
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+  }
+  .role-body.open { display: block; }
+  .role-section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 8px;
+  }
+  .role-item {
+    font-size: 12px; color: var(--text); margin-bottom: 5px;
+    display: flex; gap: 8px; line-height: 1.5;
+  }
+  .role-ai-item {
+    font-size: 12px; color: var(--text); margin-bottom: 6px;
+    padding: 6px 10px;
+    background: var(--surface2);
+    border-radius: 5px;
+    border-left: 2px solid;
+    line-height: 1.4;
+  }
+
+  /* TOOLCHAIN */
+  .tool-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px;
+    box-shadow: var(--shadow);
+    border-top: 3px solid;
+  }
+  .tool-name { font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+  .tool-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--text-dim);
+    display: flex; gap: 10px; margin-bottom: 12px;
+  }
+  .tool-meta span + span::before { content: '|'; margin-right: 10px; }
+  .tool-item {
+    font-size: 12px; color: var(--text-muted); margin-bottom: 5px;
+    display: flex; gap: 8px; line-height: 1.4;
+  }
+  .osfi-banner {
+    background: #fffbf5;
+    border: 1px solid #f0d4a0;
+    border-left: 3px solid var(--amber);
+    border-radius: 7px; padding: 14px 16px; margin-top: 16px;
+  }
+  .osfi-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; letter-spacing: 0.15em; color: var(--amber); margin-bottom: 6px;
+  }
+  .osfi-text { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+  /* COMPOUND CHAIN */
+  .chain-step {
+    display: flex; align-items: stretch; margin-bottom: 4px;
+  }
+  .step-line {
+    width: 3px; margin-left: 24px; margin-right: 0;
+    border-radius: 2px; flex-shrink: 0;
+  }
+  .step-card {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0 8px 8px 0;
+    margin-left: 10px;
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: var(--shadow);
+    border-left: 3px solid;
+  }
+  .step-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--text-dim); min-width: 20px;
+  }
+  .step-role {
+    border-radius: 4px; padding: 2px 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; font-weight: 500;
+    border: 1px solid;
+    min-width: 38px; text-align: center;
+    flex-shrink: 0;
+  }
+  .step-artifact { min-width: 140px; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .step-desc { font-size: 12px; color: var(--text-muted); flex: 1; line-height: 1.4; }
+  .step-tool {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--text-dim); white-space: nowrap; flex-shrink: 0;
+  }
+
+  .feedback-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px 22px;
+    box-shadow: var(--shadow); margin-top: 20px;
+  }
+  .feedback-item {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 12px; border-radius: 7px;
+    margin-bottom: 8px; border: 1px solid;
+    background: var(--surface2);
+  }
+  .feedback-route { display: flex; align-items: center; gap: 6px; min-width: 180px; flex-shrink: 0; }
+  .feedback-from { font-size: 12px; font-weight: 600; }
+  .feedback-arrow { color: var(--text-dim); font-size: 14px; }
+  .feedback-to { font-size: 12px; color: var(--text-muted); }
+  .feedback-artifact { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+  .feedback-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+  /* CHAMPIONS */
+  .champion-quote {
+    background: linear-gradient(135deg, var(--teal-dim), var(--blue-dim));
+    border: 1px solid var(--teal-mid);
+    border-radius: 10px; padding: 20px 24px; margin-bottom: 16px;
+  }
+  .champion-quote .label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; letter-spacing: 0.15em; color: var(--teal); margin-bottom: 8px;
+  }
+  .champion-quote blockquote {
+    font-size: 18px; font-weight: 500; font-style: italic;
+    color: var(--text); line-height: 1.5; letter-spacing: -0.2px;
+  }
+
+  .champ-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid;
+    border-radius: 9px; padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .champ-title { font-size: 12px; font-weight: 700; margin-bottom: 10px; }
+  .champ-item {
+    font-size: 12px; color: var(--text-muted); margin-bottom: 5px;
+    display: flex; gap: 8px; line-height: 1.4;
+  }
+
+  .cadence-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .cadence-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px; padding: 10px 14px; min-width: 170px;
+  }
+  .cadence-freq {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; letter-spacing: 0.12em; font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .cadence-action { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+  /* METRICS */
+  .metrics-table {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+    box-shadow: var(--shadow); margin-bottom: 20px;
+  }
+  .metrics-header {
+    display: grid; grid-template-columns: 1fr 110px 110px 80px;
+    padding: 10px 18px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; letter-spacing: 0.12em; color: var(--text-dim);
+  }
+  .metrics-row {
+    display: grid; grid-template-columns: 1fr 110px 110px 80px;
+    padding: 11px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px; transition: background 0.1s;
+  }
+  .metrics-row:last-child { border-bottom: none; }
+  .metrics-row:hover { background: var(--surface2); }
+  .metric-label { color: var(--text); }
+  .metric-target { font-weight: 600; font-family: 'DM Mono', monospace; font-size: 11px; }
+  .metric-cadence { color: var(--text-muted); font-size: 11px; }
+  .metric-tier { font-size: 10px; font-family: 'DM Mono', monospace; font-weight: 500; }
+
+  .guardrail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid;
+    border-radius: 7px; padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .guardrail-title { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .guardrail-item { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; display: flex; gap: 8px; line-height: 1.4; }
+
+  .retro-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .retro-row {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .retro-row:last-child { border-bottom: none; }
+  .retro-time { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-dim); min-width: 48px; padding-top: 1px; }
+  .retro-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .retro-detail { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+  /* FOOTER */
+  .footer {
+    border-top: 1px solid var(--border);
+    padding: 14px 32px;
+    display: flex; justify-content: space-between;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--text-dim);
+    background: var(--surface);
+    margin-top: 40px;
+  }
+  .footer .accent { color: var(--teal); }
+
+  /* SECTION */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* INTRO TEXT */
+  .intro-text { color: var(--text-muted); font-size: 13px; line-height: 1.7; margin-bottom: 22px; max-width: 680px; }
+
+  /* Utility */
+  .mb-16 { margin-bottom: 16px; }
+  .mb-20 { margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-eyebrow">
+    <span class="tag">Treasury Technology</span>
+    <span>Corporate Technology · Big Six Bank</span>
+  </div>
+  <h1>AI Operating Model <span>v1.0 · 2026</span></h1>
+</div>
+
+<nav class="nav" id="nav">
+  <button class="active" onclick="setTab(0)">OVERVIEW</button>
+  <button onclick="setTab(1)">TEAM ROLES</button>
+  <button onclick="setTab(2)">AI TOOLCHAIN</button>
+  <button onclick="setTab(3)">COMPOUND CHAIN</button>
+  <button onclick="setTab(4)">CHAMPIONS</button>
+  <button onclick="setTab(5)">METRICS &amp; GOVERNANCE</button>
+</nav>
+
+<main class="main">
+
+  <!-- OVERVIEW -->
+  <div class="section active" id="tab-0">
+    <p class="intro-text">A compound engineering operating model for a treasury tech team of BSAs, Developers, QA/QE Engineers, and Prod Support. AI is embedded at every handoff — not bolted on at the end.</p>
+
+    <div class="grid-2 mb-16">
+      <div class="principle-card" style="border-left-color: var(--teal)">
+        <div class="principle-label" style="color: var(--teal)">Core Principle</div>
+        <div class="principle-value">Artifact chain, not point-in-time AI use</div>
+      </div>
+      <div class="principle-card" style="border-left-color: var(--blue)">
+        <div class="principle-label" style="color: var(--blue)">Tool Philosophy</div>
+        <div class="principle-value">Right tool per role — Copilot for code, Claude for reasoning</div>
+      </div>
+      <div class="principle-card" style="border-left-color: var(--amber)">
+        <div class="principle-label" style="color: var(--amber)">Regulatory Posture</div>
+        <div class="principle-value">AI assists, human validates. Full traceability required.</div>
+      </div>
+      <div class="principle-card" style="border-left-color: var(--purple)">
+        <div class="principle-label" style="color: var(--purple)">Quality Gate</div>
+        <div class="principle-value">No Jira moves without a complete artifact chain</div>
+      </div>
+    </div>
+
+    <div class="chain-visual mb-16">
+      <div class="card-header">THE COMPOUND CHAIN — AT A GLANCE</div>
+      <div class="chain-nodes">
+        <div class="chain-node" style="background: var(--teal-dim); border-color: var(--teal)">
+          <div class="role-abbr" style="color: var(--teal)">BSA</div>
+          <div class="artifact" style="color: var(--text-muted)">requirements.md</div>
+        </div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node" style="background: var(--blue-dim); border-color: var(--blue)">
+          <div class="role-abbr" style="color: var(--blue)">Dev</div>
+          <div class="artifact" style="color: var(--text-muted)">design.md + code</div>
+        </div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node" style="background: var(--amber-dim); border-color: var(--amber)">
+          <div class="role-abbr" style="color: var(--amber)">QA/QE</div>
+          <div class="artifact" style="color: var(--text-muted)">test-plan.md</div>
+        </div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node" style="background: var(--purple-dim); border-color: var(--purple)">
+          <div class="role-abbr" style="color: var(--purple)">Prod</div>
+          <div class="artifact" style="color: var(--text-muted)">runbook.md</div>
+        </div>
+      </div>
+      <p style="margin-top: 12px; font-size: 11px; color: var(--text-dim); font-style: italic; font-family: 'DM Mono', monospace;">
+        Each artifact is structured (markdown/YAML), versioned in the repo, and AI-readable — so downstream roles consume, not reconstruct.
+      </p>
+    </div>
+
+    <div class="maturity-card">
+      <div class="card-header">TEAM MATURITY — WHERE ARE YOU NOW?</div>
+      <div class="maturity-levels">
+        <button class="maturity-btn" data-level="0" data-color="var(--red)" onclick="setMaturity(0)">
+          <div class="maturity-level-title">L0 · Ad Hoc</div>
+          <div class="maturity-level-desc">AI used individually, no shared patterns</div>
+        </button>
+        <button class="maturity-btn active" data-level="1" data-color="var(--amber)" onclick="setMaturity(1)" style="border-color: var(--amber); background: var(--amber-dim)">
+          <div class="maturity-level-title" style="color: var(--amber)">L1 · Enabled</div>
+          <div class="maturity-level-desc">Tool access + templates in place, inconsistent use</div>
+        </button>
+        <button class="maturity-btn" data-level="2" data-color="var(--teal)" onclick="setMaturity(2)">
+          <div class="maturity-level-title">L2 · Compound</div>
+          <div class="maturity-level-desc">Artifact chain operating, feedback loops active</div>
+        </button>
+        <button class="maturity-btn" data-level="3" data-color="var(--blue)" onclick="setMaturity(3)">
+          <div class="maturity-level-title">L3 · Self-Improving</div>
+          <div class="maturity-level-desc">Chain retros drive improvement, ROI measured</div>
+        </button>
+      </div>
+      <div class="maturity-next" id="maturity-next">
+        <span style="color: var(--teal); font-weight: 600">↑ Next level (Compound):</span>
+        Activate the artifact chain on 2–3 features. Run your first chain retro.
+      </div>
+    </div>
+  </div>
+
+  <!-- TEAM ROLES -->
+  <div class="section" id="tab-1">
+    <p class="intro-text">Click a role to expand. Each role has a distinct AI moment profile and artifact responsibility.</p>
+
+    <div id="roles-container"></div>
+  </div>
+
+  <!-- AI TOOLCHAIN -->
+  <div class="section" id="tab-2">
+    <div class="grid-2 mb-16">
+      <div class="tool-card" style="border-top-color: var(--blue)">
+        <div class="tool-name" style="color: var(--blue)">GitHub Copilot</div>
+        <div class="tool-meta"><span>Enterprise Licensed</span><span>Dev, QA/QE</span></div>
+        <div class="tool-item"><span style="color: var(--blue)">·</span> Inline code completion in VS Code / Visual Studio</div>
+        <div class="tool-item"><span style="color: var(--blue)">·</span> Test scaffolding from test-plan.md</div>
+        <div class="tool-item"><span style="color: var(--blue)">·</span> copilot-instructions.md for repo-level context</div>
+        <div class="tool-item"><span style="color: var(--blue)">·</span> Premium token budget — use for complex reasoning too</div>
+      </div>
+      <div class="tool-card" style="border-top-color: var(--teal)">
+        <div class="tool-name" style="color: var(--teal)">Claude (claude.ai)</div>
+        <div class="tool-meta"><span>Browser — No Code Injection</span><span>All Roles</span></div>
+        <div class="tool-item"><span style="color: var(--teal)">·</span> Requirements drafting + self-review</div>
+        <div class="tool-item"><span style="color: var(--teal)">·</span> Complex business logic explanation</div>
+        <div class="tool-item"><span style="color: var(--teal)">·</span> Artifact generation (design.md, runbook.md)</div>
+        <div class="tool-item"><span style="color: var(--teal)">·</span> Regulatory text → structured requirements</div>
+      </div>
+      <div class="tool-card" style="border-top-color: var(--purple)">
+        <div class="tool-name" style="color: var(--purple)">M365 Copilot</div>
+        <div class="tool-meta"><span>Enterprise O365 Tenant</span><span>BSA primarily</span></div>
+        <div class="tool-item"><span style="color: var(--purple)">·</span> Meeting notes → action items</div>
+        <div class="tool-item"><span style="color: var(--purple)">·</span> Confluence / SharePoint document drafting</div>
+        <div class="tool-item"><span style="color: var(--purple)">·</span> Teams meeting summaries</div>
+        <div class="tool-item"><span style="color: var(--purple)">·</span> Email drafting for stakeholder comms</div>
+      </div>
+      <div class="tool-card" style="border-top-color: var(--amber)">
+        <div class="tool-name" style="color: var(--amber)">JTMF / Jira</div>
+        <div class="tool-meta"><span>Test Management Platform</span><span>QA/QE</span></div>
+        <div class="tool-item"><span style="color: var(--amber)">·</span> Structured test case storage (replacing Excel)</div>
+        <div class="tool-item"><span style="color: var(--amber)">·</span> TC-### traceability to requirements</div>
+        <div class="tool-item"><span style="color: var(--amber)">·</span> Test evidence linked to SharePoint</div>
+        <div class="tool-item"><span style="color: var(--amber)">·</span> AI-populate test cases from test-plan.md</div>
+      </div>
+    </div>
+    <div class="osfi-banner">
+      <div class="osfi-label">OSFI / DATA RESIDENCY NOTE</div>
+      <div class="osfi-text">No customer data, counterparty data, or regulatory position data in AI prompts via browser tools. Enterprise tools (Copilot, M365) operate within bank tenant boundary. Claude browser use: architecture, templates, reasoning — not live data. Validate any AI output before it enters regulated workflows (SA-CCR, CVA, FRTB).</div>
+    </div>
+  </div>
+
+  <!-- COMPOUND CHAIN -->
+  <div class="section" id="tab-3">
+    <p class="intro-text">The chain converts AI from additive (each role uses AI independently) to multiplicative (each step builds on the last). The artifact is the baton.</p>
+
+    <div id="chain-container" class="mb-20"></div>
+
+    <div class="feedback-section">
+      <div class="card-header">FEEDBACK LOOPS — THE REVERSE CHAIN</div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.6;">
+        Compound engineering isn't purely forward. These reverse flows catch defects before they propagate downstream.
+      </p>
+      <div class="feedback-item" style="border-color: #f0d4a0">
+        <div class="feedback-route">
+          <span class="feedback-from" style="color: var(--amber)">QA/QE</span>
+          <span class="feedback-arrow">←</span>
+          <span class="feedback-to">BSA</span>
+        </div>
+        <div>
+          <div class="feedback-artifact" style="color: var(--amber)">Requirements Gap Report</div>
+          <div class="feedback-desc">Test generation surfaces missing AC → BSA updates requirements.md before implementation proceeds</div>
+        </div>
+      </div>
+      <div class="feedback-item" style="border-color: #d4c4e8">
+        <div class="feedback-route">
+          <span class="feedback-from" style="color: var(--purple)">Prod Support</span>
+          <span class="feedback-arrow">←</span>
+          <span class="feedback-to">Dev</span>
+        </div>
+        <div>
+          <div class="feedback-artifact" style="color: var(--purple)">Operability Review</div>
+          <div class="feedback-desc">Runbook generation surfaces monitoring/rollback gaps → Dev fixes design before code merges</div>
+        </div>
+      </div>
+      <div class="feedback-item" style="border-color: #f5c6c6">
+        <div class="feedback-route">
+          <span class="feedback-from" style="color: var(--red)">Incident</span>
+          <span class="feedback-arrow">←</span>
+          <span class="feedback-to">All</span>
+        </div>
+        <div>
+          <div class="feedback-artifact" style="color: var(--red)">Post-Incident Chain Trace</div>
+          <div class="feedback-desc">Claude maps incident back to artifact chain to update AC, design, test cases, and runbook</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAMPIONS -->
+  <div class="section" id="tab-4">
+    <div class="champion-quote mb-16">
+      <div class="label">FOUNDING PRINCIPLE</div>
+      <blockquote>"Central AI gives you the map. Your champion knows the terrain."</blockquote>
+    </div>
+
+    <div class="grid-2 mb-16">
+      <div class="champ-card" style="border-top-color: var(--teal)">
+        <div class="champ-title" style="color: var(--teal)">What a Champion Is</div>
+        <div class="champ-item"><span style="color: var(--teal)">·</span> Embedded within their role (BSA, Dev, QA, Prod)</div>
+        <div class="champ-item"><span style="color: var(--teal)">·</span> Primary contact for AI questions on the team</div>
+        <div class="champ-item"><span style="color: var(--teal)">·</span> Pilots new patterns before team-wide rollout</div>
+        <div class="champ-item"><span style="color: var(--teal)">·</span> Runs retros and surfaces what's working / not</div>
+      </div>
+      <div class="champ-card" style="border-top-color: var(--red)">
+        <div class="champ-title" style="color: var(--red)">What a Champion Is Not</div>
+        <div class="champ-item"><span style="color: var(--red)">·</span> A prompt engineer or dedicated AI role</div>
+        <div class="champ-item"><span style="color: var(--red)">·</span> A blocker — they accelerate, not gate</div>
+        <div class="champ-item"><span style="color: var(--red)">·</span> Responsible for tool access or licensing</div>
+        <div class="champ-item"><span style="color: var(--red)">·</span> A replacement for the central AI program</div>
+      </div>
+      <div class="champ-card" style="border-top-color: var(--blue)">
+        <div class="champ-title" style="color: var(--blue)">Champion Responsibilities</div>
+        <div class="champ-item"><span style="color: var(--blue)">·</span> Own the prompt library for their role</div>
+        <div class="champ-item"><span style="color: var(--blue)">·</span> Run chain retros quarterly</div>
+        <div class="champ-item"><span style="color: var(--blue)">·</span> Submit ROI data to AVP monthly</div>
+        <div class="champ-item"><span style="color: var(--blue)">·</span> Onboard new team members to the chain</div>
+        <div class="champ-item"><span style="color: var(--blue)">·</span> Escalate enterprise blockers (tool access, policy)</div>
+      </div>
+      <div class="champ-card" style="border-top-color: var(--purple)">
+        <div class="champ-title" style="color: var(--purple)">Champion Selection Criteria</div>
+        <div class="champ-item"><span style="color: var(--purple)">·</span> Intrinsic curiosity about AI — not assigned by default</div>
+        <div class="champ-item"><span style="color: var(--purple)">·</span> Strong in their functional role first</div>
+        <div class="champ-item"><span style="color: var(--purple)">·</span> Communicates clearly across roles</div>
+        <div class="champ-item"><span style="color: var(--purple)">·</span> One champion per role minimum (BSA, Dev, QA, Prod)</div>
+      </div>
+    </div>
+
+    <div class="card" style="padding: 20px 22px">
+      <div class="card-header">CHAMPION CADENCE</div>
+      <div class="cadence-grid">
+        <div class="cadence-item">
+          <div class="cadence-freq" style="color: var(--teal)">WEEKLY</div>
+          <div class="cadence-action">Quick check-in: What's the AI win this sprint?</div>
+        </div>
+        <div class="cadence-item">
+          <div class="cadence-freq" style="color: var(--blue)">MONTHLY</div>
+          <div class="cadence-action">Submit ROI data + prompt library updates to AVP</div>
+        </div>
+        <div class="cadence-item">
+          <div class="cadence-freq" style="color: var(--amber)">QUARTERLY</div>
+          <div class="cadence-action">Chain retro — what compounded well, what broke?</div>
+        </div>
+        <div class="cadence-item">
+          <div class="cadence-freq" style="color: var(--purple)">ANNUALLY</div>
+          <div class="cadence-action">Operating model review — maturity level assessment</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- METRICS & GOVERNANCE -->
+  <div class="section" id="tab-5">
+    <div class="metrics-table mb-20">
+      <div class="metrics-header">
+        <span>METRIC</span><span>TARGET</span><span>CADENCE</span><span>TIER</span>
+      </div>
+      <div class="metrics-row">
+        <span class="metric-label">Requirement → Test Traceability</span>
+        <span class="metric-target" style="color: var(--teal)">95%+</span>
+        <span class="metric-cadence">Per sprint</span>
+        <span class="metric-tier" style="color: var(--blue)">Quality</span>
+      </div>
+      <div class="metrics-row">
+        <span class="metric-label">Requirements Gap Rate</span>
+        <span class="metric-target" style="color: var(--teal)">&lt; 10%</span>
+        <span class="metric-cadence">Per sprint</span>
+        <span class="metric-tier" style="color: var(--blue)">Quality</span>
+      </div>
+      <div class="metrics-row">
+        <span class="metric-label">AI Assist Rate (PR descriptions)</span>
+        <span class="metric-target" style="color: var(--teal)">80%+</span>
+        <span class="metric-cadence">Monthly</span>
+        <span class="metric-tier" style="color: var(--amber)">Adoption</span>
+      </div>
+      <div class="metrics-row">
+        <span class="metric-label">Artifact Chain Completeness</span>
+        <span class="metric-target" style="color: var(--teal)">100% pre-UAT</span>
+        <span class="metric-cadence">Per Jira</span>
+        <span class="metric-tier" style="color: var(--blue)">Quality</span>
+      </div>
+      <div class="metrics-row">
+        <span class="metric-label">Copilot Accept Rate</span>
+        <span class="metric-target" style="color: var(--teal)">≥ 30%</span>
+        <span class="metric-cadence">Monthly</span>
+        <span class="metric-tier" style="color: var(--amber)">Adoption</span>
+      </div>
+      <div class="metrics-row">
+        <span class="metric-label">Test Automation Coverage</span>
+        <span class="metric-target" style="color: var(--teal)">Trend ↑</span>
+        <span class="metric-cadence">Monthly</span>
+        <span class="metric-tier" style="color: var(--blue)">Quality</span>
+      </div>
+      <div class="metrics-row">
+        <span class="metric-label">Runbook Generation Time</span>
+        <span class="metric-target" style="color: var(--teal)">Trend ↓</span>
+        <span class="metric-cadence">Quarterly</span>
+        <span class="metric-tier" style="color: var(--teal)">Efficiency</span>
+      </div>
+      <div class="metrics-row">
+        <span class="metric-label">Chain Retro: Recurring Breakpoints</span>
+        <span class="metric-target" style="color: var(--teal)">0 recurring</span>
+        <span class="metric-cadence">Quarterly</span>
+        <span class="metric-tier" style="color: var(--purple)">Health</span>
+      </div>
+    </div>
+
+    <div class="grid-2 mb-20">
+      <div class="guardrail-card" style="border-left-color: var(--blue)">
+        <div class="guardrail-title" style="color: var(--blue)">Code Quality</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> ruff (linting)</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> mypy (type checking)</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> bandit (security scanning)</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> CLAUDE.md — machine-readable AI instructions per repo</div>
+      </div>
+      <div class="guardrail-card" style="border-left-color: var(--teal)">
+        <div class="guardrail-title" style="color: var(--teal)">AI Tool Governance</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> GitHub Copilot — enterprise licensed, premium token budget</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> Claude — claude.ai (browser), no sensitive data in prompts</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> M365 Copilot — O365 tenant boundary enforced</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> No third-party AI tools without OSFI B-10/B-13 review</div>
+      </div>
+      <div class="guardrail-card" style="border-left-color: var(--amber)">
+        <div class="guardrail-title" style="color: var(--amber)">Regulatory</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> OSFI B-10/B-13 data residency compliance</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> Basel III / BCBS 239 data lineage requirements</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> Audit traceability: REQ → DES → TC → RB chain</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> SA-CCR / CVA / FRTB — AI assists, human validates</div>
+      </div>
+      <div class="guardrail-card" style="border-left-color: var(--purple)">
+        <div class="guardrail-title" style="color: var(--purple)">Repo Standards</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> CLAUDE.md + copilot-instructions.md per repo</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> Python: ruff/mypy/bandit toolchain enforced</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> YAML/Pydantic config patterns for pipeline artifacts</div>
+        <div class="guardrail-item"><span style="color: var(--text-dim)">·</span> CODEOWNERS controls for regulated pipeline configs</div>
+      </div>
+    </div>
+
+    <div class="retro-section">
+      <div class="card-header">QUARTERLY CHAIN RETRO — AGENDA</div>
+      <div class="retro-row">
+        <div class="retro-time">10 min</div>
+        <div>
+          <div class="retro-title">What compounded well?</div>
+          <div class="retro-detail">Name 1–2 features where the chain strengthened output quality</div>
+        </div>
+      </div>
+      <div class="retro-row">
+        <div class="retro-time">10 min</div>
+        <div>
+          <div class="retro-title">Where did the chain break?</div>
+          <div class="retro-detail">Which role, artifact, or handoff was the weak link this quarter?</div>
+        </div>
+      </div>
+      <div class="retro-row">
+        <div class="retro-time">10 min</div>
+        <div>
+          <div class="retro-title">ROI snapshot</div>
+          <div class="retro-detail">Hours saved, traceability %, gap rate, Copilot accept rate — trend vs last quarter</div>
+        </div>
+      </div>
+      <div class="retro-row">
+        <div class="retro-time">10 min</div>
+        <div>
+          <div class="retro-title">Next quarter action</div>
+          <div class="retro-detail">1 targeted change to the chain — specific, not vague. "Improve requirements quality" is not actionable.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <span>Treasury Technology · AI Operating Model v1.0</span>
+  <span class="accent">Compound Engineering Framework</span>
+</footer>
+
+<script>
+  // ── Data ──
+  const roles = [
+    {
+      id: 'bsa', title: 'Business Systems Analyst', abbr: 'BSA', color: '#007a6b',
+      tools: ['Claude (claude.ai)', 'M365 Copilot'],
+      produces: ['requirements.md', 'user stories', 'acceptance criteria', 'regulatory mapping'],
+      consumes: ['Business need', 'Regulatory text', 'Stakeholder notes'],
+      aiMoments: [
+        'Draft requirements from meeting notes',
+        'Map OSFI/Basel clauses to functional requirements',
+        'Self-review spec for completeness before handoff',
+        'Generate structured AC from vague business language',
+      ]
+    },
+    {
+      id: 'dev', title: 'Developer', abbr: 'Dev', color: '#1a5ea8',
+      tools: ['GitHub Copilot (inline)', 'Claude (complex logic)', 'VS Code / Visual Studio'],
+      produces: ['design.md', 'code + PR', 'AI-drafted PR description'],
+      consumes: ['requirements.md', 'CLAUDE.md / copilot-instructions.md', 'pipeline YAML'],
+      aiMoments: [
+        'Generate design artifact from requirements',
+        'Copilot inline for boilerplate / pattern repetition',
+        'Claude for complex business logic (SA-CCR, CVA calc)',
+        'AI-drafted PR description with traceability IDs',
+      ]
+    },
+    {
+      id: 'qa', title: 'QA / QE Engineer', abbr: 'QA/QE', color: '#b85c00',
+      tools: ['Claude (claude.ai)', 'GitHub Copilot (test scaffolding)'],
+      produces: ['test-plan.md', 'test automation scaffolding', 'Requirements Gap Report → BSA'],
+      consumes: ['requirements.md', 'design.md', 'PR diff'],
+      aiMoments: [
+        'Generate test cases from requirements + design',
+        'Scaffold automation from test-plan.md',
+        'Produce Requirements Gap Report back to BSA',
+        'Populate JTMF/Jira test cases from plan',
+      ]
+    },
+    {
+      id: 'prod', title: 'Prod Support', abbr: 'Prod', color: '#6b3fa0',
+      tools: ['Claude (claude.ai)'],
+      produces: ['runbook.md', 'alert playbooks', 'Operability Review → Dev'],
+      consumes: ['requirements.md', 'design.md', 'test-plan.md'],
+      aiMoments: [
+        'Generate runbook from full artifact chain',
+        'Surface operability gaps before code merges',
+        'Draft alert playbooks from design decisions',
+        'Post-incident: trace gaps back to artifact chain',
+      ]
+    }
+  ];
+
+  const chainSteps = [
+    { step: 1, role: 'BSA', color: '#007a6b', artifact: 'requirements.md', desc: 'Business need + regulatory text → structured requirements with REQ-### IDs', tool: 'Claude' },
+    { step: 2, role: 'BSA', color: '#007a6b', artifact: 'Self-review', desc: 'Claude reviews own spec for gaps, missing AC, edge cases before handoff to Dev', tool: 'Claude' },
+    { step: 3, role: 'Dev', color: '#1a5ea8', artifact: 'design.md', desc: 'requirements.md consumed → design with DES-### IDs tracing to REQ-###', tool: 'Claude + Copilot' },
+    { step: 4, role: 'Dev', color: '#1a5ea8', artifact: 'Code + PR', desc: 'requirements.md + design.md as Copilot context → implementation + AI PR description', tool: 'Copilot inline' },
+    { step: 5, role: 'QA/QE', color: '#b85c00', artifact: 'test-plan.md', desc: 'requirements + design + PR diff → TC-### IDs tracing to REQ/DES', tool: 'Claude' },
+    { step: 6, role: 'QA/QE', color: '#b85c00', artifact: 'Test automation', desc: 'test-plan.md → scaffolded test code committed to repo', tool: 'Claude + Copilot' },
+    { step: 7, role: 'Prod', color: '#6b3fa0', artifact: 'runbook.md', desc: 'Full artifact chain → runbook with RB-### IDs and alert playbooks', tool: 'Claude' },
+    { step: 8, role: 'All', color: '#aaa49e', artifact: 'Chain review', desc: 'All roles: AI cross-checks artifacts for contradictions, gaps, and operability issues', tool: 'Claude' },
+  ];
+
+  // ── Render roles ──
+  const rolesContainer = document.getElementById('roles-container');
+  roles.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'role-accordion';
+    div.innerHTML = `
+      <button class="role-header" onclick="toggleRole('${r.id}')">
+        <div class="role-header-left">
+          <div class="role-badge" style="color:${r.color}; border-color:${r.color}; background:${r.color}18">${r.abbr}</div>
+          <div class="role-title">${r.title}</div>
+        </div>
+        <span class="role-toggle" id="toggle-${r.id}" style="color:${r.color}">+</span>
+      </button>
+      <div class="role-body" id="body-${r.id}">
+        <div class="grid-2">
+          <div>
+            <div class="role-section-label">AI TOOLS</div>
+            ${r.tools.map(t => `<div class="role-item"><span style="color:${r.color}">◆</span>${t}</div>`).join('')}
+          </div>
+          <div>
+            <div class="role-section-label">PRODUCES</div>
+            ${r.produces.map(p => `<div class="role-item"><span style="color:${r.color}">→</span>${p}</div>`).join('')}
+          </div>
+          <div>
+            <div class="role-section-label">CONSUMES</div>
+            ${r.consumes.map(c => `<div class="role-item"><span style="color:#aaa49e">←</span><span style="color:#6b6560">${c}</span></div>`).join('')}
+          </div>
+          <div>
+            <div class="role-section-label">TOP AI MOMENTS</div>
+            ${r.aiMoments.map(m => `<div class="role-ai-item" style="border-left-color:${r.color}">${m}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+    rolesContainer.appendChild(div);
+  });
+
+  // ── Render chain ──
+  const chainContainer = document.getElementById('chain-container');
+  chainSteps.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'chain-step';
+    div.innerHTML = `
+      <div class="step-line" style="background:${i < chainSteps.length - 1 ? s.color : 'transparent'}"></div>
+      <div class="step-card" style="border-left-color:${s.color}">
+        <div class="step-num">0${s.step}</div>
+        <div class="step-role" style="color:${s.color}; border-color:${s.color}; background:${s.color}18">${s.role}</div>
+        <div class="step-artifact" style="color:${s.color}">${s.artifact}</div>
+        <div class="step-desc">${s.desc}</div>
+        <div class="step-tool">${s.tool}</div>
+      </div>
+    `;
+    chainContainer.appendChild(div);
+  });
+
+  // ── Tab switching ──
+  function setTab(i) {
+    document.querySelectorAll('.section').forEach((s, j) => {
+      s.classList.toggle('active', i === j);
+    });
+    document.querySelectorAll('.nav button').forEach((b, j) => {
+      b.classList.toggle('active', i === j);
+    });
+  }
+
+  // ── Role accordion ──
+  function toggleRole(id) {
+    const body = document.getElementById('body-' + id);
+    const toggle = document.getElementById('toggle-' + id);
+    const accordion = body.closest('.role-accordion');
+    const isOpen = body.classList.contains('open');
+    body.classList.toggle('open', !isOpen);
+    accordion.classList.toggle('open', !isOpen);
+    toggle.textContent = isOpen ? '+' : '−';
+  }
+
+  // ── Maturity ──
+  const maturityData = [
+    { level: 'L0', label: 'Ad Hoc', color: '#c0392b', next: 'Deploy templates + tool access. Pick one champion per role to pilot.' },
+    { level: 'L1', label: 'Enabled', color: '#b85c00', next: 'Activate the artifact chain on 2–3 features. Run your first chain retro.' },
+    { level: 'L2', label: 'Compound', color: '#007a6b', next: 'Instrument metrics. Champions lead retros. ROI reported to leadership.' },
+    { level: 'L3', label: 'Self-Improving', color: '#1a5ea8', next: null },
+  ];
+
+  function setMaturity(level) {
+    document.querySelectorAll('.maturity-btn').forEach((b, i) => {
+      const m = maturityData[i];
+      b.classList.toggle('active', i === level);
+      b.style.borderColor = i === level ? m.color : '';
+      b.style.background = i === level ? m.color + '18' : '';
+      b.querySelector('.maturity-level-title').style.color = i === level ? m.color : '';
+    });
+
+    const nextEl = document.getElementById('maturity-next');
+    const current = maturityData[level];
+    if (level < 3) {
+      const next = maturityData[level + 1];
+      nextEl.innerHTML = `<span style="color:${next.color}; font-weight:600">↑ Next level (${next.label}):</span> ${current.next}`;
+      nextEl.style.display = '';
+    } else {
+      nextEl.innerHTML = `<span style="color:${current.color}; font-weight:600">✓ Operating at full maturity.</span> Focus: sustain, document, and share the model across other teams.`;
+    }
+  }
+</script>
+</body>
+</html>
