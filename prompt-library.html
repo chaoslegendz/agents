@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Prompt Library — Treasury Technology</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --td-green:  #54B848;
+    --td-dark:   #003F2D;
+    --td-bg:     #edf6eb;
+    --surface:   #ffffff;
+    --surface2:  #f4faf3;
+    --border:    #c8e4c4;
+    --border2:   #aed4a9;
+    --bsa:   #54B848; --bsa-dim: #54B84814;
+    --dev:   #2563EB; --dev-dim: #2563EB14;
+    --qa:    #EA580C; --qa-dim:  #EA580C14;
+    --prod:  #7C3AED; --prod-dim:#7C3AED14;
+    --text:       #0d2b22;
+    --text-muted: #3d6355;
+    --text-dim:   #8aaa9a;
+    --shadow: 0 1px 3px rgba(0,63,45,0.06), 0 4px 12px rgba(0,63,45,0.04);
+    --shadow-md: 0 2px 8px rgba(0,63,45,0.08), 0 8px 24px rgba(0,63,45,0.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--td-bg); color: var(--text); min-height: 100vh; }
+
+  /* HEADER */
+  .header { background: var(--td-dark); padding: 20px 32px 18px; box-shadow: 0 2px 12px rgba(0,63,45,0.3); }
+  .header-eyebrow { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.15em; color: rgba(255,255,255,0.45); margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+  .header-eyebrow .tag { background: var(--td-green); color: var(--td-dark); padding: 2px 8px; border-radius: 3px; font-weight: 600; }
+  .header h1 { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+  .header h1 span { font-weight: 300; font-size: 14px; color: rgba(255,255,255,0.45); margin-left: 10px; }
+
+  /* LAYOUT */
+  .layout { display: flex; min-height: calc(100vh - 73px); }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 260px; flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    position: sticky; top: 0; height: calc(100vh - 73px);
+    overflow-y: auto;
+  }
+  .sidebar-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: var(--text-dim); margin-bottom: 10px; padding-left: 8px; }
+  .role-tab {
+    width: 100%; background: none; border: none; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
+    margin-bottom: 4px; text-align: left;
+    transition: all 0.15s;
+  }
+  .role-tab:hover { background: var(--surface2); }
+  .role-tab.active { background: var(--surface2); }
+  .role-tab .rtab-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .role-tab .rtab-name { font-size: 13px; font-weight: 600; }
+  .role-tab .rtab-sub { font-size: 11px; color: var(--text-dim); }
+  .role-tab .rtab-count { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-dim); }
+
+  .sidebar-divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  .prompt-nav { display: flex; flex-direction: column; gap: 2px; }
+  .prompt-nav-item {
+    width: 100%; background: none; border: none; cursor: pointer;
+    text-align: left; padding: 7px 10px; border-radius: 6px;
+    font-size: 12px; color: var(--text-muted); line-height: 1.4;
+    transition: all 0.1s; display: flex; align-items: center; gap: 8px;
+  }
+  .prompt-nav-item:hover { background: var(--surface2); color: var(--text); }
+  .prompt-nav-item.active { font-weight: 600; }
+  .prompt-nav-item .pn-num { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-dim); min-width: 18px; }
+
+  /* MAIN */
+  .main { flex: 1; padding: 32px; max-width: 860px; }
+
+  /* ROLE HEADER */
+  .role-header-bar {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .role-badge-large {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 14px; border-radius: 6px;
+    font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600;
+    border: 1px solid; margin-bottom: 10px;
+  }
+  .role-title-large { font-size: 24px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .role-tools { font-size: 12px; color: var(--text-dim); font-family: 'DM Mono', monospace; }
+  .role-principle {
+    font-size: 12px; color: var(--text-muted); font-style: italic;
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid; border-radius: 6px; padding: 10px 14px;
+    max-width: 340px; line-height: 1.5;
+  }
+
+  /* PROMPT CARD */
+  .prompt-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; margin-bottom: 20px;
+    box-shadow: var(--shadow); overflow: hidden;
+    scroll-margin-top: 24px;
+    transition: box-shadow 0.2s;
+  }
+  .prompt-card:hover { box-shadow: var(--shadow-md); }
+  .prompt-card-header {
+    padding: 18px 20px 0; display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 12px;
+  }
+  .prompt-num {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    color: var(--text-dim); padding-top: 3px; flex-shrink: 0;
+  }
+  .prompt-title { font-size: 16px; font-weight: 700; color: var(--text); flex: 1; }
+  .prompt-type-chip {
+    font-family: 'DM Mono', monospace; font-size: 9px;
+    padding: 3px 8px; border-radius: 4px; border: 1px solid;
+    white-space: nowrap; flex-shrink: 0; font-weight: 500;
+  }
+  .prompt-meta { padding: 10px 20px 14px; display: flex; gap: 20px; flex-wrap: wrap; }
+  .prompt-meta-item { font-size: 11px; color: var(--text-dim); display: flex; align-items: center; gap: 5px; }
+  .prompt-meta-item strong { color: var(--text-muted); font-weight: 500; }
+  .prompt-when {
+    margin: 0 20px 12px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 12px;
+    font-size: 12px; color: var(--text-muted); line-height: 1.5;
+  }
+  .prompt-when span { font-weight: 600; color: var(--text); }
+  .prompt-body { padding: 0 20px; }
+  .prompt-code-wrap { position: relative; margin-bottom: 14px; }
+  .prompt-code {
+    background: var(--td-dark); border-radius: 8px;
+    padding: 16px 18px; font-family: 'DM Mono', monospace;
+    font-size: 11px; line-height: 1.8; color: rgba(255,255,255,0.75);
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 380px; overflow-y: auto;
+  }
+  .prompt-code .ph { color: var(--td-green); } /* placeholders */
+  .copy-btn {
+    position: absolute; top: 10px; right: 10px;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.7); border-radius: 6px;
+    padding: 5px 12px; font-family: 'DM Mono', monospace; font-size: 10px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .copy-btn:hover { background: rgba(84,184,72,0.3); border-color: var(--td-green); color: #fff; }
+  .copy-btn.copied { background: rgba(84,184,72,0.4); border-color: var(--td-green); color: #fff; }
+  .prompt-footer {
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--surface2);
+  }
+  .prompt-footer-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 5px; }
+  .prompt-footer-text { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+  /* SEARCH */
+  .search-bar {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px; box-shadow: var(--shadow);
+  }
+  .search-bar input {
+    border: none; outline: none; background: none;
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    color: var(--text); flex: 1;
+  }
+  .search-bar input::placeholder { color: var(--text-dim); }
+  .search-icon { color: var(--text-dim); font-size: 14px; }
+  .search-count { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-dim); }
+
+  .no-results { text-align: center; padding: 40px; color: var(--text-dim); font-size: 13px; }
+
+  .footer { background: var(--td-dark); padding: 14px 32px; display: flex; justify-content: space-between; font-family: 'DM Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.35); }
+  .footer .accent { color: var(--td-green); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-eyebrow"><span class="tag">Treasury Technology</span><span>Shared Prompt Library · prompts/</span></div>
+  <h1>AI Prompt Library <span>v1.0 · 2026</span></h1>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-label">ROLES</div>
+    <button class="role-tab active" onclick="setRole('bsa')">
+      <div class="rtab-dot" style="background:var(--bsa)"></div>
+      <div><div class="rtab-name">BSA</div><div class="rtab-sub">Business Systems Analyst</div></div>
+      <div class="rtab-count">10</div>
+    </button>
+    <button class="role-tab" onclick="setRole('dev')">
+      <div class="rtab-dot" style="background:var(--dev)"></div>
+      <div><div class="rtab-name">Dev</div><div class="rtab-sub">Developer</div></div>
+      <div class="rtab-count">10</div>
+    </button>
+    <button class="role-tab" onclick="setRole('qa')">
+      <div class="rtab-dot" style="background:var(--qa)"></div>
+      <div><div class="rtab-name">QA / QE</div><div class="rtab-sub">QA Engineer</div></div>
+      <div class="rtab-count">8</div>
+    </button>
+    <button class="role-tab" onclick="setRole('prod')">
+      <div class="rtab-dot" style="background:var(--prod)"></div>
+      <div><div class="rtab-name">Prod Support</div><div class="rtab-sub">Production Support</div></div>
+      <div class="rtab-count">7</div>
+    </button>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-label">PROMPTS</div>
+    <div class="prompt-nav" id="prompt-nav"></div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search" placeholder="Search prompts..." oninput="filterPrompts()">
+      <span class="search-count" id="search-count"></span>
+    </div>
+    <div id="role-header"></div>
+    <div id="prompts-container"></div>
+  </main>
+</div>
+
+<footer class="footer">
+  <span>Treasury Technology · AI Prompt Library · prompts/</span>
+  <span class="accent">Repo: agent-infrastructure/prompts/</span>
+</footer>
+
+<script>
+const ROLES = {
+  bsa: {
+    name: 'Business Systems Analyst',
+    abbr: 'BSA',
+    color: '#54B848',
+    dim: '#54B84814',
+    tools: 'M365 Copilot (primary) · GitHub Copilot · BSA Agent',
+    principle: 'Agents assist — you own the requirements and test cases.',
+    prompts: [
+      {
+        title: 'Convert Meeting Notes to Requirements',
+        type: 'Requirements',
+        tool: 'BSA Agent',
+        when: 'After a stakeholder meeting, discovery session, or requirements workshop.',
+        good: 'Numbered REQ-### IDs, no ambiguous language, at least 2–3 open questions surfaced, assumptions made explicit.',
+        prompt: `You are a senior business systems analyst at a financial institution.
+
+Convert the following meeting notes into a structured requirements document.
+
+Meeting notes:
+[PASTE MEETING NOTES HERE]
+
+Jira ticket: [JIRA-####]
+
+Output format:
+- Ticket ID: JIRA-####
+- Summary: One sentence describing the feature or change
+- Background: Why this is needed (2–3 sentences)
+- Functional Requirements: Numbered list, REQ-001 format, each requirement on one line, written as "The system shall..."
+- Assumptions: What you've assumed that wasn't explicitly stated
+- Open Questions: Anything that needs clarification before work begins
+- Out of Scope: What this ticket explicitly does not cover
+
+Be specific. Avoid vague language. If a requirement is unclear, flag it as an open question rather than inventing detail.`
+      },
+      {
+        title: 'Convert Email Thread to Requirements',
+        type: 'Requirements',
+        tool: 'BSA Agent',
+        when: 'When requirements come in via email rather than a meeting.',
+        good: 'Conflicts surfaced, not resolved. All implied requirements made explicit with an assumption flag.',
+        prompt: `You are a senior business systems analyst at a financial institution.
+
+I have an email thread below that contains a business request. Extract the key requirements from it and produce a structured requirements document.
+
+Email thread:
+[PASTE EMAIL THREAD HERE]
+
+Jira ticket: [JIRA-####]
+
+Output:
+- Ticket ID: JIRA-####
+- Summary: One sentence
+- Requester & stakeholders: Who is asking and who is affected
+- Functional Requirements: REQ-001 numbered format, "The system shall..." statements
+- Assumptions: What you've inferred that wasn't stated
+- Open Questions: What needs clarification before work can begin
+- Out of Scope: What this ticket does not cover
+
+Flag any conflicting information in the email thread. Do not resolve conflicts — surface them as open questions.`
+      },
+      {
+        title: 'Self-Review Requirements for Completeness',
+        type: 'Quality check',
+        tool: 'BSA Agent',
+        when: 'Before handing requirements to the Plan agent. Run this after you\'ve drafted requirements.',
+        good: 'At least 3–5 gaps on a typical ticket. If zero gaps are returned, re-prompt with more specific context.',
+        prompt: `You are a senior QA analyst reviewing a requirements document before it goes to development.
+
+Review the following requirements document and identify gaps, ambiguities, and missing elements.
+
+Requirements document:
+[PASTE REQUIREMENTS HERE]
+
+Check for:
+1. Missing acceptance criteria — are there requirements with no clear pass/fail condition?
+2. Ambiguous language — words like "fast," "easy," "flexible" with no measurable definition
+3. Missing error/edge cases — what happens when input is invalid, empty, or unexpected?
+4. Missing negative cases — what should the system NOT do?
+5. Missing non-functional requirements — performance, security, data retention, audit logging
+6. Regulatory gaps — OSFI, Basel III, or data lineage considerations not addressed
+7. Testability — can each requirement be verified by a test case?
+
+Output per gap:
+- Gap: [description]
+- Severity: High / Medium / Low
+- Suggested fix or clarifying question
+
+Do not rewrite the requirements. Only flag issues.`
+      },
+      {
+        title: 'Map Regulatory Text to Functional Requirements',
+        type: 'Regulatory',
+        tool: 'BSA Agent',
+        when: 'When a ticket is driven by an OSFI guideline, Basel III rule, or internal policy.',
+        good: 'Direct traceability from each REQ-### to a specific regulatory clause. Ambiguities flagged, not guessed.',
+        prompt: `You are a senior business systems analyst specialising in regulatory compliance at a Canadian bank.
+
+Map the following regulatory text to functional system requirements.
+
+Regulatory source: [e.g. OSFI B-13, Basel III BCBS 239, SA-CCR guideline section X]
+Regulatory text:
+[PASTE REGULATORY SECTION HERE]
+
+Business context:
+[Brief description of the system or process this applies to]
+
+For each requirement you derive:
+- REQ-###: The system shall... [functional requirement]
+- Regulatory reference: [exact clause or section]
+- Rationale: Why this requirement is needed to satisfy the regulation
+- Audit note: What evidence would demonstrate compliance
+
+Flag any regulatory text that is ambiguous or requires legal/compliance team interpretation.`
+      },
+      {
+        title: 'Generate Acceptance Criteria from Vague Business Language',
+        type: 'Requirements',
+        tool: 'BSA Agent',
+        when: 'When a stakeholder gives you a vague ask and you need to turn it into testable AC.',
+        good: 'Each AC is independently testable. Negative cases included. Missing info clearly listed.',
+        prompt: `A business stakeholder has given me the following request:
+
+"[PASTE VAGUE BUSINESS REQUEST]"
+
+Jira ticket: [JIRA-####]
+
+Convert this into specific, testable acceptance criteria using Given-When-Then format.
+
+For each acceptance criterion:
+- AC-###: Given [context], When [action], Then [expected outcome]
+- Test type: Positive / Negative / Edge case
+- Notes: Any assumption made to write this AC
+
+Also list:
+- What information is still missing to write complete acceptance criteria
+- What you assumed versus what was stated
+
+Do not pad. If the request only supports 3 AC, write 3. Quality over quantity.`
+      },
+      {
+        title: 'Generate BSA Test Cases from Requirements',
+        type: 'Test cases',
+        tool: 'BSA Agent',
+        when: 'After requirements are finalised and self-reviewed. Produces the BSA testplan for the Jira ticket.',
+        good: 'Every REQ-### covered. Negative cases present. MANUAL_REQUIRED flagged where automation isn\'t possible.',
+        prompt: `You are a senior business systems analyst writing functional test cases.
+
+Generate a test plan from the following requirements document.
+
+Requirements:
+[PASTE REQUIREMENTS HERE]
+
+Jira ticket: [JIRA-####]
+
+For each test case:
+- ID: JIRA-####-TC01 (increment per case)
+- Title: Short description of what is being tested
+- Type: Functional / Negative / Edge case / Boundary
+- Prerequisite: What must be true before this test can run
+- Steps: Numbered test steps
+- Expected result: What should happen
+- Automation: automated / manual / tbd
+- Notes: Any dependency or clarification
+
+Rules:
+- Every REQ-### must have at least one test case
+- Include at least one negative test case per functional area
+- Flag any requirement that cannot be tested as written — do not write a test case for it`
+      },
+      {
+        title: 'Self-Review Test Plan for Coverage Gaps',
+        type: 'Quality check',
+        tool: 'BSA Agent',
+        when: 'After generating BSA test cases, before handing to the Plan agent.',
+        good: 'A clear coverage matrix. Any REQ-### with "Not covered" must be addressed before handoff.',
+        prompt: `Review the following test plan against the requirements document and identify coverage gaps.
+
+Requirements:
+[PASTE REQUIREMENTS]
+
+Test plan:
+[PASTE TEST PLAN]
+
+Check for:
+1. Requirements without any test case
+2. Requirements with only positive tests (missing negative/edge cases)
+3. Test cases that don't map to any requirement
+4. Duplicate or redundant test cases
+5. Test cases that are not independently executable
+6. Cases marked "tbd" for automation that could realistically be automated
+
+Output a coverage report:
+- Requirement: [REQ-###]
+- Coverage status: Covered / Partially covered / Not covered
+- Gap: What is missing
+- Recommendation: Add TC / Modify TC / Flag as manual
+
+Summary line: X of Y requirements fully covered.`
+      },
+      {
+        title: 'Draft Stakeholder Update for Requirements Change',
+        type: 'Communication',
+        tool: 'M365 Copilot',
+        when: 'When requirements change mid-sprint and you need to communicate the impact.',
+        good: 'Clear summary of what changed and why, impact stated plainly, one clear ask.',
+        prompt: `Draft a concise stakeholder update email for the following requirements change.
+
+Jira ticket: [JIRA-####]
+Original requirement: [DESCRIBE ORIGINAL]
+New requirement: [DESCRIBE CHANGE]
+Reason for change: [EXPLAIN WHY]
+Impact: [WHAT CHANGES — scope, timeline, test cases]
+Action required from stakeholders: [WHAT DO YOU NEED FROM THEM]
+
+Tone: Professional, direct, no fluff.
+Audience: [business stakeholders / technology leads]
+Length: Under 150 words.`
+      },
+      {
+        title: 'Summarise Requirements for Dev Handoff',
+        type: 'Handoff',
+        tool: 'BSA Agent',
+        when: 'When handing a complex ticket to the Plan agent — a summary helps the agent produce a better plan.',
+        good: 'Concise enough to read in 2 minutes. Key business rules clearly stated. Dependencies explicit.',
+        prompt: `Summarise the following requirements document into a structured handoff brief for a development team.
+
+Requirements:
+[PASTE REQUIREMENTS]
+
+Test plan:
+[PASTE TEST PLAN]
+
+Jira ticket: [JIRA-####]
+
+Output:
+- What is being built (2 sentences max)
+- Key business rules the developer must not violate
+- The 3 most critical test cases from the test plan
+- Known constraints or dependencies (systems, data, environments)
+- Open questions that dev may surface during implementation
+
+This brief will be fed to a planning agent. Be precise. No padding.`
+      },
+      {
+        title: 'Check for Overlap with Existing Jira Tickets',
+        type: 'Discovery',
+        tool: 'M365 Copilot',
+        when: 'Before writing new requirements, to avoid duplicating work already done or in flight.',
+        good: 'Specific search terms relevant to the domain, not generic. JQL queries ready to paste.',
+        prompt: `I am about to write requirements for the following request:
+
+[DESCRIBE THE REQUEST]
+
+Before I start, help me draft a list of search terms and Jira JQL queries I should run to check whether similar work has already been done or is in progress.
+
+Context: We work in treasury technology at a bank. Our systems include [LIST RELEVANT SYSTEMS e.g. Murex, ADLS, reporting pipelines].
+
+Output:
+- 5 search terms to use in Jira text search
+- 3 JQL queries to find potentially related tickets
+- Questions I should ask my team before starting`
+      },
+    ]
+  },
+  dev: {
+    name: 'Developer',
+    abbr: 'Dev',
+    color: '#2563EB',
+    dim: '#2563EB14',
+    tools: 'GitHub Copilot in VS Code (Claude + GPT) · Plan Agent · Dev Agent (FE / Python) · Code Review Agent',
+    principle: 'Agents assist — you own the code. Always review output before committing.',
+    prompts: [
+      { title:'Feed Requirements to the Plan Agent', type:'Planning', tool:'Plan Agent', when:'At the start of a Standard-tier ticket, after the BSA has finalised requirements and test cases.', good:'Every TC-### from the BSA testplan explicitly mapped. Risks named. Steps specific enough that a dev agent can execute them.', prompt:`@plan-agent
+
+Create an implementation plan for the following Jira ticket.
+
+Jira ticket: [JIRA-####]
+
+Requirements:
+[PASTE REQUIREMENTS]
+
+BSA Test Plan:
+[PASTE JIRA-####-testplan-bsa]
+
+[If applicable:]
+Architecture reference: [PASTE relevant section of architecture.md]
+Security controls: [PASTE relevant section of security-controls.md]
+
+Output a structured plan with:
+1. Summary — what is being built and why
+2. Technical approach — how it will be implemented
+3. Components affected — files, services, APIs, databases
+4. Implementation steps — ordered, numbered, specific
+5. Test case mapping — for each JIRA-####-TC## how the implementation satisfies it
+6. Risks and dependencies — what could block or complicate this
+7. Definition of done — what must be true for this ticket to be complete
+
+Flag anything in the requirements that is ambiguous before proceeding.` },
+      { title:'Feed Plan to the Frontend Dev Agent', type:'Implementation', tool:'Dev Agent — Frontend', when:'After the plan agent has produced the implementation plan and it has been human-reviewed.', good:'Every TC-### has a test. Manifest includes status for all cases. No silent skips.', prompt:`@dev-agent-frontend
+
+Implement the following plan for Jira ticket [JIRA-####].
+
+Implementation plan:
+[PASTE JIRA-####-plan]
+
+BSA Test plan:
+[PASTE JIRA-####-testplan-bsa]
+
+Rules:
+- Follow the patterns in copilot-instructions.md for this repo
+- For each JIRA-####-TC## in the BSA test plan, generate a corresponding unit or component test
+- After implementation, emit JIRA-####-test-results-manifest.json with result of each TC-## case: PASS, FAIL, MANUAL_REQUIRED, or SKIPPED with reason
+- Do not add scope beyond what is in the plan without flagging it
+- Flag any plan step that is ambiguous before implementing it
+
+Output:
+- Implementation code
+- Unit/component tests mapped to TC-## IDs
+- test-results-manifest.json` },
+      { title:'Feed Plan to the Python Dev Agent', type:'Implementation', tool:'Dev Agent — Python', when:'For Python/backend work after the plan agent has produced the implementation plan.', good:'Type hints on all functions. No mypy or ruff violations. Every TC-### has a corresponding pytest test.', prompt:`@dev-agent-python
+
+Implement the following plan for Jira ticket [JIRA-####].
+
+Implementation plan:
+[PASTE JIRA-####-plan]
+
+BSA Test plan:
+[PASTE JIRA-####-testplan-bsa]
+
+Rules:
+- Follow Python standards: ruff for linting, mypy for type checking, bandit for security
+- Use Pydantic for config/data validation where applicable
+- Follow YAML config patterns for any pipeline configuration
+- For each JIRA-####-TC## in the BSA test plan, generate a corresponding pytest unit test
+- After implementation, emit JIRA-####-test-results-manifest.json with status for each TC-## case
+- Do not add scope beyond the plan without flagging it
+
+Output:
+- Python implementation
+- pytest tests mapped to TC-## IDs
+- test-results-manifest.json` },
+      { title:'Set Repo Context for Copilot Inline', type:'Setup', tool:'copilot-instructions.md', when:'When starting work on a new repo or unfamiliar codebase — paste into copilot-instructions.md.', good:'Copilot suggestions align to your stack without having to repeat context on every prompt.', prompt:`# Copilot Instructions — [REPO NAME]
+
+## What this repo does
+[2–3 sentences describing the purpose of this repo]
+
+## Tech stack
+- Language: Python [version] / TypeScript [version]
+- Framework: [e.g. FastAPI, React]
+- Key libraries: [e.g. Pydantic, pandas, ADLS SDK]
+- Config pattern: YAML with Pydantic validation
+- Linting: ruff | Type checking: mypy | Security: bandit
+
+## Coding standards
+- All functions must have type hints
+- All config loaded via Pydantic models, not raw dicts
+- No hardcoded credentials or environment-specific values
+- Logging via [library], not print statements
+- Error handling: raise specific exceptions, never bare except
+
+## What to avoid
+- No pandas for large datasets — use [preferred alternative]
+- No synchronous calls in async functions
+- No direct SQL string concatenation — use parameterised queries
+
+## Test standards
+- pytest for all unit tests
+- Test files in /tests mirroring source structure
+- Each test function tests one thing
+- Mocks for all external API calls` },
+      { title:'Trigger Code Review Agent', type:'Quality', tool:'Code Review Agent', when:'After the dev agent has completed implementation, before handing to QA.', good:'Critical and High findings are specific and actionable. "Must-fix before QA" list is clear.', prompt:`@code-review-agent
+
+Review the following implementation for Jira ticket [JIRA-####].
+
+Code diff / files changed:
+[PASTE CODE OR FILE PATHS]
+
+Implementation plan (for context):
+[PASTE JIRA-####-plan or summary]
+
+Review for:
+1. Security — hardcoded secrets, SQL injection, unvalidated inputs, improper error handling
+2. Performance — N+1 queries, unnecessary loops, blocking calls, memory leaks
+3. Type safety — missing type hints, Any types where specific types could be used
+4. Error handling — bare excepts, swallowed exceptions, missing error logging
+5. Test coverage — are there code paths with no corresponding test?
+6. Standards — does this follow the patterns in copilot-instructions.md?
+7. Risk — anything that could cause a prod incident or data issue
+
+Output per finding:
+- Finding: [description]
+- Severity: Critical / High / Medium / Low
+- File and line: [location]
+- Recommendation: [what to do]
+
+Summarise: X critical, Y high, Z medium findings. Must-fix before QA: [list].` },
+      { title:'Generate PR Description with Traceability', type:'Documentation', tool:'GitHub Copilot (inline)', when:'After implementation is complete and code review findings are resolved.', good:'TC-### IDs explicitly listed. Reviewer checklist complete. No vague summary.', prompt:`Generate a pull request description for the following change.
+
+Jira ticket: [JIRA-####]
+Summary of change: [BRIEF DESCRIPTION]
+
+Files changed:
+[LIST KEY FILES]
+
+BSA test cases covered:
+[LIST JIRA-####-TC## IDs this PR satisfies]
+
+PR description format:
+## Summary
+[What this PR does, 2–3 sentences]
+
+## Jira ticket
+[JIRA-####] — [ticket title]
+
+## Changes
+- [Bullet list of key changes]
+
+## Test coverage
+- Unit tests: [what is covered]
+- BSA test cases satisfied: [JIRA-####-TC01, TC02...]
+- Manual tests required: [any MANUAL_REQUIRED cases]
+
+## Notes for reviewer
+[Anything the reviewer should pay special attention to]
+
+## Checklist
+- [ ] ruff — no linting errors
+- [ ] mypy — no type errors
+- [ ] bandit — no security findings
+- [ ] Code review agent run
+- [ ] test-results-manifest.json generated` },
+      { title:'Explain Complex Business Logic Before Implementing', type:'Understanding', tool:'GitHub Copilot (Claude)', when:'When requirements reference domain-specific logic (SA-CCR, CVA, FTP calculations) before writing code.', good:'Calculation explained step by step. Edge cases listed. You could write tests directly from the output.', prompt:`Before I implement this requirement, help me understand the business logic.
+
+Requirement:
+[PASTE REQ-### text]
+
+Context:
+- Treasury technology system at a Canadian bank
+- Relevant domain: [e.g. SA-CCR, CVA, ALM, FTP, liquidity reporting]
+- Related systems: [e.g. Murex, ADLS, downstream reporting]
+
+Questions:
+1. Explain the calculation or logic in plain language
+2. What are the edge cases or boundary conditions I must handle?
+3. What data inputs are required and what are their expected formats?
+4. Are there any regulatory constraints on how this must be calculated?
+5. What would a wrong implementation look like — what failure modes should I test for?
+
+I will use this to write the implementation and unit tests. Be specific and technical.` },
+      { title:'Debug with Agent Context', type:'Debugging', tool:'GitHub Copilot (Claude or GPT)', when:'When a test is failing or behaviour is unexpected and you need help diagnosing.', good:'Root cause identified before a fix is proposed. Related regression risks called out.', prompt:`I have a failing test / unexpected behaviour. Help me diagnose.
+
+Jira ticket: [JIRA-####]
+Test case: [JIRA-####-TC##]
+
+Error / unexpected output:
+[PASTE ERROR MESSAGE OR DESCRIBE BEHAVIOUR]
+
+Relevant code:
+[PASTE RELEVANT FUNCTION OR CLASS]
+
+Test code:
+[PASTE FAILING TEST]
+
+Expected behaviour (from requirements):
+[PASTE REQ-### or describe]
+
+Questions:
+1. What is causing this failure?
+2. Is the bug in the implementation or the test?
+3. What is the minimal fix?
+4. Are there related cases I should check to avoid introducing a regression?
+
+Do not rewrite the whole function. Diagnose first, fix second.` },
+      { title:'Requirements Change — Re-run Plan Agent', type:'Planning', tool:'Plan Agent', when:'When BSA updates requirements after the plan has already run. The propagation rule requires re-running the plan before dev continues.', good:'Diff between old and new plan is explicit. Rework risk called out clearly.', prompt:`@plan-agent
+
+Requirements have changed for Jira ticket [JIRA-####]. The existing plan needs to be updated.
+
+Original plan:
+[PASTE ORIGINAL PLAN]
+
+Updated requirements:
+[PASTE UPDATED REQUIREMENTS]
+
+Updated BSA test plan:
+[PASTE UPDATED TESTPLAN-BSA]
+
+What changed:
+[DESCRIBE WHAT CHANGED AND WHY]
+
+Output:
+- A revised implementation plan reflecting the updated requirements
+- Highlight what changed from the original plan (additions, removals, modifications)
+- Flag any parts of the original implementation that may need to be reworked
+- Updated TC-## mapping for any new or changed test cases` },
+      { title:'Lightweight Ticket — Direct Dev Agent', type:'Implementation', tool:'Dev Agent (FE or Python)', when:'For Lightweight-tier tickets (minor change, small bug fix) where a Plan agent step is not required.', good:'Minimal diff. Existing tests still pass. Risk to adjacent code noted.', prompt:`@dev-agent-python [or @dev-agent-frontend]
+
+This is a lightweight change for Jira ticket [JIRA-####].
+
+Change description:
+[DESCRIBE WHAT NEEDS TO CHANGE]
+
+File(s) to modify:
+[LIST FILES]
+
+Requirements context:
+[PASTE JIRA DESCRIPTION OR REQ-### if available]
+
+Rules:
+- Minimal change — do not refactor beyond what is needed
+- Add or update unit tests for the changed code
+- Follow existing patterns in the file — do not introduce new patterns
+- Note any risk or side effect of this change
+
+Output:
+- Modified code
+- Updated tests
+- Brief note on what was changed and why` },
+    ]
+  },
+  qa: {
+    name: 'QA / QE Engineer',
+    abbr: 'QA/QE',
+    color: '#EA580C',
+    dim: '#EA580C14',
+    tools: 'GitHub Copilot in VS Code (Claude + GPT) · QA Agent (in progress)',
+    principle: 'QA owns the sign-off. Agent output informs your judgment — it does not replace it.',
+    prompts: [
+      { title:'Run Gap Analysis on BSA Test Plan', type:'Gap analysis', tool:'QA Agent', when:'After BSA has finalised requirements and test cases, before writing your own QA test plan.', good:'Specific gaps with requirement traceability. Critical gaps flagged. Recommendation on whether BSA needs to update before dev starts.', prompt:`You are a senior QA engineer reviewing a BSA-produced test plan before writing QA test cases.
+
+Jira ticket: [JIRA-####]
+
+Requirements:
+[PASTE REQUIREMENTS]
+
+BSA test plan (TC01, TC02...):
+[PASTE JIRA-####-testplan-bsa]
+
+Perform a gap analysis. Identify:
+1. Missing functional coverage — requirements with no test case or only happy-path
+2. Missing negative cases — invalid, empty, out-of-range inputs
+3. Missing edge cases — boundary values, concurrent execution, data volume extremes
+4. Missing error handling tests — what happens when upstream systems fail
+5. Untestable requirements — written in a way that cannot be verified
+6. Ambiguous acceptance criteria — not specific enough to determine pass/fail
+
+For each gap:
+- Gap ID: GAP-##
+- Related REQ-###: [which requirement]
+- Related TC-## (if any): [existing case that is insufficient]
+- Gap description: What is missing
+- Suggested QA test case: What you would add as JIRA-####-QA##
+- Severity: Critical / High / Medium / Low
+
+Summary: X gaps found. Recommend BSA update before dev proceeds: Yes / No.` },
+      { title:'Regression Impact Analysis', type:'Regression', tool:'QA Agent', when:'When a new requirement comes in and you need to know which existing Xray test cases may be affected.', good:'Clear categorisation of archive / update / re-run / create. New test IDs follow JIRA-####-QA## convention.', prompt:`You are a senior QA engineer assessing the regression impact of a new change.
+
+Jira ticket: [JIRA-####]
+
+New requirement summary:
+[DESCRIBE WHAT IS CHANGING]
+
+Existing test cases potentially affected:
+[PASTE EXISTING TEST CASES OR DESCRIBE THE TEST SUITE]
+
+System context:
+[DESCRIBE THE SYSTEM — e.g. treasury data pipeline, Murex integration, regulatory reporting]
+
+Assess:
+1. Which existing test cases are directly invalidated by this change?
+2. Which existing test cases are indirectly affected (need re-validation)?
+3. Are there archived test cases that should be reviewed for relevance?
+4. What new regression tests should be added to the canonical suite?
+
+Output a regression test plan:
+- Tests to archive: [list]
+- Tests to update: [list with what to change]
+- Tests to re-run unchanged: [list]
+- New tests to create: [list as JIRA-####-QA##]` },
+      { title:'Generate QA Test Cases', type:'Test cases', tool:'QA Agent / GitHub Copilot', when:'When writing your QA test plan after dev has completed.', good:'Cases focus on cross-system behaviour. At least one full journey test. No duplication of BSA TC-### cases.', prompt:`You are a senior QA engineer writing integration, regression, and full journey test cases.
+
+Jira ticket: [JIRA-####]
+
+Requirements:
+[PASTE REQUIREMENTS]
+
+BSA test plan (for reference — do not duplicate):
+[PASTE JIRA-####-testplan-bsa]
+
+Write QA test cases for:
+1. Integration tests — does this feature work correctly with connected systems?
+2. Regression tests — does this change break any existing functionality?
+3. Full journey tests — does the end-to-end user/system flow work correctly?
+4. Non-functional tests — performance, data volume, concurrent users
+
+For each test case:
+- ID: JIRA-####-QA01 (increment per case)
+- Title: Short description
+- Type: Integration / Regression / Journey / Non-functional
+- Prerequisite: What must be true before this test runs
+- Steps: Numbered
+- Expected result: Clear pass/fail condition
+- Automation: automated / manual / tbd
+- Systems involved: [which systems are exercised]
+
+Do not duplicate BSA test cases. Focus on system-level behaviour.` },
+      { title:'Review Test Results Manifest', type:'Verification', tool:'GitHub Copilot', when:'After the dev agent has run and emitted the test-results-manifest.json. Review before you begin QA execution.', good:'All gaps between testplan and manifest surfaced. Clear list of what QA must manually execute. Dev defects separated from test/environment issues.', prompt:`Review the following test results manifest from the dev agent.
+
+Jira ticket: [JIRA-####]
+
+Manifest:
+[PASTE JIRA-####-test-results-manifest.json]
+
+BSA test plan (for reference):
+[PASTE JIRA-####-testplan-bsa]
+
+Analyse:
+1. Coverage check — are all TC-## cases accounted for in the manifest?
+2. MANUAL_REQUIRED cases — list all with their reasons (human QA must execute these)
+3. SKIPPED cases — list with reasons, assess whether each skip is acceptable
+4. FAIL cases — is this a code defect, test defect, or environment issue?
+5. Unaccounted cases — any TC-## in BSA testplan missing from the manifest?
+
+Output:
+- Coverage: X of Y BSA cases accounted for
+- MANUAL_REQUIRED: [list with reasons]
+- SKIPPED requiring investigation: [list]
+- FAIL cases for dev to fix: [list]
+- Missing from manifest: [list]
+- QA sign-off readiness: Ready / Not ready — reason` },
+      { title:'Write Automation Test Scaffolding', type:'Automation', tool:'GitHub Copilot (inline)', when:'When converting a manual QA test case to an automated test.', good:'Test ID commented. Assertions match the expected result exactly. External calls mocked. Ready to fill in.', prompt:`I have a manual QA test case that I want to automate. Generate test scaffolding.
+
+Test case:
+- ID: [JIRA-####-QA##]
+- Title: [title]
+- Type: [Integration / Regression / Journey]
+- Steps: [numbered steps]
+- Expected result: [pass condition]
+
+System under test: [describe the component or API]
+Test framework: [pytest / Jest / Playwright / etc.]
+Existing test patterns: [describe or paste an example test]
+
+Generate:
+1. Test function scaffold with correct naming convention
+2. Setup and teardown if needed
+3. Assertions that directly verify the expected result
+4. Mock or stub for external system calls
+5. Comment noting this covers [JIRA-####-QA##]
+
+Provide the structure for me to complete — not the full implementation.` },
+      { title:'Draft Requirements Gap Report for BSA', type:'Communication', tool:'GitHub Copilot', when:'After gap analysis, to formally communicate findings back to the BSA before dev proceeds.', good:'Gaps split into "must fix now" vs "QA will handle." One clear ask. Collaborative tone throughout.', prompt:`Draft a Requirements Gap Report to send to the BSA for Jira ticket [JIRA-####].
+
+Gap analysis findings:
+[PASTE FINDINGS]
+
+Tone: Collaborative, not critical. Goal is to improve requirements before dev starts.
+
+Format:
+## Requirements Gap Report — JIRA-####
+Reviewed by: [Your name] | Date: [Date]
+Status: [Gaps found — update required / Minor gaps / No gaps]
+
+### Summary
+[2–3 sentences on overall finding]
+
+### Gaps requiring update before dev proceeds
+| Gap ID | REQ-### | Description | Suggested fix |
+
+### Gaps QA will handle in test plan
+| Gap ID | REQ-### | Description | QA action |
+
+### Recommended next step
+[One clear ask of the BSA]` },
+      { title:'Post-Incident Chain Trace', type:'Incident', tool:'GitHub Copilot', when:'After a production incident, to identify which part of the artifact chain failed to catch it.', good:'Specific artifact identified as the gap. New test case described specifically enough to create. Regression suite update is actionable.', prompt:`A production incident has occurred. Trace it back through the artifact chain.
+
+Incident description:
+[DESCRIBE WHAT HAPPENED IN PROD]
+
+Related Jira ticket(s): [JIRA-####]
+
+Artifact chain to review:
+- Requirements: [PASTE or summarise]
+- BSA test cases: [PASTE or list TC-## IDs]
+- QA test cases: [PASTE or list QA-## IDs]
+- Test results manifest: [PASTE or summarise]
+
+Trace:
+1. Should the requirements have specified the failing behaviour?
+2. Should the BSA test plan have caught this?
+3. Should the QA test plan have caught this?
+4. Did any test case exist that should have caught this? Why did it not?
+5. Is this a test coverage gap, execution gap, or environment gap?
+
+Output:
+- Root cause in the chain: [Requirements / BSA testplan / QA testplan / Execution / Environment]
+- Artifact to update: [which document and what to add]
+- New test case to create: [ID and description]
+- Regression suite update: [what to add]` },
+      { title:'QA Sign-off Summary', type:'Sign-off', tool:'GitHub Copilot', when:'When all testing is complete and you are preparing the formal sign-off before release.', good:'Decision is unambiguous. All test case categories accounted for. Open defects listed if any.', prompt:`Generate a QA sign-off summary for Jira ticket [JIRA-####].
+
+Testing completed:
+- BSA test cases executed: [X of Y — pass/fail breakdown]
+- MANUAL_REQUIRED cases executed: [X of Y]
+- QA test cases executed: [X of Y — pass/fail breakdown]
+- Open defects: [list or "none"]
+- Defects resolved: [list]
+
+Test environment: [describe]
+Build / version tested: [describe]
+
+Format:
+## QA Sign-off — JIRA-####
+QA Engineer: [Name] | Date: [Date]
+Decision: ✅ Approved / ⚠️ Conditional / ❌ Not approved
+
+### Test execution summary
+[Table of cases run and results]
+
+### Defects
+[Open and resolved defects]
+
+### Conditions (if conditional)
+[Conditions that must be met]
+
+### Sign-off statement
+[One sentence confirming readiness for production]` },
+    ]
+  },
+  prod: {
+    name: 'Production Support',
+    abbr: 'Prod',
+    color: '#7C3AED',
+    dim: '#7C3AED14',
+    tools: 'M365 Copilot (primary) · GitHub Copilot in VS Code (roadmap)',
+    principle: 'Agent output is a draft — always validate against actual system behaviour before a runbook is used in production.',
+    prompts: [
+      { title:'Generate Runbook from Artifact Chain', type:'Runbook', tool:'M365 Copilot', when:'After QA sign-off, before a feature goes to production.', good:'Rollback steps specific enough for a non-expert. Verification steps are observable checks. Escalation path names roles, not individuals.', prompt:`You are a senior production support engineer writing a runbook for a new feature deployment.
+
+Jira ticket: [JIRA-####]
+
+Requirements:
+[PASTE REQUIREMENTS]
+
+Implementation summary (from plan or dev notes):
+[PASTE JIRA-####-plan or dev summary]
+
+BSA test cases (key cases only — for context):
+[PASTE KEY JIRA-####-testplan-bsa CASES]
+
+Generate a production runbook:
+
+## Runbook — JIRA-####: [Feature Name]
+Version: 1.0 | Owner: [Name] | Date: [Date]
+
+### 1. Overview
+[What this feature does operationally — 2–3 sentences]
+
+### 2. Systems involved
+[All systems, APIs, databases, and data flows this feature touches]
+
+### 3. Deployment steps
+[Ordered, numbered steps to deploy to production]
+
+### 4. Verification steps
+[How to confirm deployment was successful — specific checks]
+
+### 5. Monitoring
+[Key metrics, normal ranges, dashboards to use]
+
+### 6. Rollback procedure
+[Exact steps to roll back — assume a non-expert may execute this]
+
+### 7. Known risks
+[What could go wrong and early warning signs]
+
+### 8. Escalation path
+[Who to contact and in what order]` },
+      { title:'Generate Alert Playbook', type:'Playbook', tool:'M365 Copilot', when:'After generating the runbook, to document how to respond to specific alerts.', good:'Immediate actions executable within 5 minutes. Investigation steps include actual queries or commands, not just "check the logs."', prompt:`Generate an alert playbook for the following system/feature.
+
+Jira ticket: [JIRA-####]
+Feature/component: [NAME]
+Systems involved: [LIST]
+
+Alerts to cover:
+[LIST KNOWN ALERTS OR DESCRIBE THE FAILURE MODES]
+
+For each alert:
+
+## Alert: [ALERT NAME]
+Severity: P1 / P2 / P3 | System: [which system] | Condition: [what triggers it]
+
+### Symptoms
+[What the operator will observe]
+
+### Immediate actions (first 5 minutes)
+1. [Step]
+2. [Step]
+
+### Investigation steps
+1. [What to check — include actual queries, commands, or dashboards]
+
+### Resolution
+[How to resolve the most common causes]
+
+### Escalation
+[When to escalate and to whom]
+
+### Post-incident
+[What to document and follow-up actions]` },
+      { title:'Operability Review', type:'Review', tool:'M365 Copilot', when:'After reviewing the dev implementation, before QA sign-off. Surface operability gaps back to dev while changes are still cheap.', good:'At least one finding per category. Must-fix items are specific enough for dev to act on. Overall readiness decision is clear.', prompt:`You are a senior production support engineer reviewing a new feature for operability before it goes to QA.
+
+Jira ticket: [JIRA-####]
+
+Implementation summary:
+[PASTE JIRA-####-plan or dev summary]
+
+Requirements:
+[PASTE REQUIREMENTS]
+
+Review for:
+1. Observability — can we tell if this is working correctly in production? Logs, metrics, queryable state?
+2. Rollback — can we reverse this if something goes wrong? Data migrations that can't be rolled back?
+3. Failure modes — does it fail loudly (error logged, alert fired) or silently?
+4. Runbook readiness — can a non-developer diagnose a failure without reading the code?
+5. Regulatory / audit — is there an audit trail for any regulated calculation or data movement?
+
+Output per finding:
+- Finding: [description]
+- Category: Observability / Rollback / Failure modes / Runbook readiness / Regulatory
+- Severity: Must fix before prod / Should fix before prod / Nice to have
+- Recommendation: [specific action for dev]
+
+Overall readiness: Ready for QA / Conditional — fix [X] first / Not ready` },
+      { title:'Log Analysis — Diagnose a Production Issue', type:'Incident', tool:'GitHub Copilot (roadmap)', when:'When investigating a production incident or unexpected behaviour.', good:'Root cause is specific. Immediate and permanent fixes are distinct. Category clearly identified.', prompt:`Help me diagnose a production issue from the following logs.
+
+System: [NAME]
+Jira ticket: [JIRA-#### or "unknown"]
+Time of issue: [TIMESTAMP]
+What was observed: [DESCRIBE THE SYMPTOM]
+
+Logs:
+[PASTE LOG EXTRACT]
+
+Analyse:
+1. What is the root error? Find the first exception or error in the chain.
+2. What caused the root error? Trace back through the log.
+3. What is the sequence of events leading to the failure?
+4. Is this a code defect, data issue, environment issue, or external dependency failure?
+5. Which system or component is the source of the problem?
+6. What is the business impact?
+
+Output:
+- Root cause: [description]
+- Category: Code / Data / Environment / External dependency
+- First occurrence in log: [timestamp]
+- Recommended immediate action: [what to do right now]
+- Recommended permanent fix: [what to fix so it doesn't recur]` },
+      { title:'Draft Incident Report', type:'Communication', tool:'M365 Copilot', when:'After resolving a production incident.', good:'Timeline is factual, not interpretive. Root cause distinguishes immediate cause from underlying cause. Action items have owners.', prompt:`Draft a production incident report.
+
+System: [NAME]
+Date/time: [START — END]
+Severity: P1 / P2 / P3
+Detected by: [alert / user report / monitoring]
+
+What happened: [DESCRIBE]
+Timeline: [KEY EVENTS WITH TIMESTAMPS]
+Root cause: [DESCRIBE]
+Resolution: [DESCRIBE]
+
+Format:
+## Incident Report — [SYSTEM] — [DATE]
+Severity: [P1/P2/P3] | Duration: [X hours Y minutes]
+Systems affected: [list] | User impact: [describe]
+
+### Timeline
+| Time | Event |
+
+### Root cause
+[Non-technical summary followed by technical detail]
+
+### Resolution
+[What was done to restore service]
+
+### Prevention
+- Immediate: [done right away]
+- Long-term: [what needs to change]
+
+### Action items
+| Action | Owner | Due date |` },
+      { title:'Generate Monitoring Dashboard Spec', type:'Monitoring', tool:'M365 Copilot', when:'When a new feature needs a monitoring view and you need to specify what to build.', good:'Each panel has a clear alert condition. Business metric panel is specific to the feature. Thresholds are concrete numbers.', prompt:`Generate a monitoring dashboard specification for the following feature.
+
+Feature: [NAME]
+Jira ticket: [JIRA-####]
+Systems involved: [LIST]
+Key business process: [DESCRIBE]
+
+For each panel/widget specify:
+- Panel name
+- Metric or query (plain language — engineering will implement)
+- Chart type: Time series / Counter / Table / Alert status
+- Normal range or threshold
+- Alert condition (when should this turn red?)
+- Why this matters operationally
+
+Panels to include:
+1. System health — is it running?
+2. Throughput — how much data/work is being processed?
+3. Error rate — are there failures?
+4. Latency — is it within acceptable bounds?
+5. Data freshness — is the data current? (key for regulatory reporting)
+6. Business metric — [the specific outcome this feature produces]
+
+Also specify: refresh rate, default time range, who should be alerted and at what threshold.` },
+      { title:'Update Runbook After Incident', type:'Runbook', tool:'M365 Copilot', when:'After a production incident reveals a gap in an existing runbook.', good:'Only changed sections are returned. Every change is marked [UPDATED]. The runbook is better after the next person reads it than before the incident.', prompt:`A production incident revealed a gap in our runbook. Help me update it.
+
+Existing runbook:
+[PASTE CURRENT RUNBOOK]
+
+What the incident revealed:
+[DESCRIBE WHAT HAPPENED AND WHAT THE RUNBOOK MISSED]
+
+Root cause from incident report:
+[PASTE ROOT CAUSE]
+
+Update the runbook to:
+1. Add the missing scenario to Known risks
+2. Add the diagnostic steps that resolved the incident to Investigation steps
+3. Update Rollback procedure if it was found insufficient
+4. Add a new alert to Monitoring if one was identified
+5. Update Escalation path if the right people were not contacted quickly enough
+
+Output the updated sections only. Mark all changes with [UPDATED].` },
+    ]
+  }
+};
+
+let currentRole = 'bsa';
+let searchQuery = '';
+
+function setRole(role) {
+  currentRole = role;
+  searchQuery = '';
+  document.getElementById('search').value = '';
+  document.querySelectorAll('.role-tab').forEach((t, i) => {
+    t.classList.toggle('active', Object.keys(ROLES)[i] === role);
+  });
+  renderAll();
+  window.scrollTo(0, 0);
+}
+
+function filterPrompts() {
+  searchQuery = document.getElementById('search').value.toLowerCase();
+  renderPrompts();
+}
+
+function renderAll() {
+  renderRoleHeader();
+  renderNav();
+  renderPrompts();
+}
+
+function renderRoleHeader() {
+  const r = ROLES[currentRole];
+  document.getElementById('role-header').innerHTML = `
+    <div class="role-header-bar">
+      <div>
+        <div class="role-badge-large" style="color:${r.color};border-color:${r.color};background:${r.dim}">
+          <span style="width:10px;height:10px;border-radius:50%;background:${r.color};display:inline-block;flex-shrink:0"></span>
+          ${r.abbr}
+        </div>
+        <div class="role-title-large">${r.name}</div>
+        <div class="role-tools">${r.tools}</div>
+      </div>
+      <div class="role-principle" style="border-left-color:${r.color}">
+        ${r.principle}
+      </div>
+    </div>`;
+}
+
+function renderNav() {
+  const r = ROLES[currentRole];
+  document.getElementById('prompt-nav').innerHTML = r.prompts.map((p, i) => `
+    <button class="prompt-nav-item" onclick="scrollToPrompt(${i})" style="--role-color:${r.color}">
+      <span class="pn-num">${String(i+1).padStart(2,'0')}</span>
+      <span>${p.title}</span>
+    </button>`).join('');
+}
+
+function scrollToPrompt(i) {
+  const el = document.getElementById(`prompt-${i}`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function typeColors(type) {
+  const map = {
+    'Requirements': { bg: '#54B84814', border: '#54B848', color: '#54B848' },
+    'Quality check': { bg: '#2563EB14', border: '#2563EB', color: '#2563EB' },
+    'Regulatory': { bg: '#B4530914', border: '#B45309', color: '#B45309' },
+    'Test cases': { bg: '#EA580C14', border: '#EA580C', color: '#EA580C' },
+    'Communication': { bg: '#7C3AED14', border: '#7C3AED', color: '#7C3AED' },
+    'Handoff': { bg: '#54B84814', border: '#54B848', color: '#54B848' },
+    'Discovery': { bg: '#2563EB14', border: '#2563EB', color: '#2563EB' },
+    'Planning': { bg: '#2563EB14', border: '#2563EB', color: '#2563EB' },
+    'Implementation': { bg: '#003F2D14', border: '#003F2D', color: '#003F2D' },
+    'Setup': { bg: '#7C3AED14', border: '#7C3AED', color: '#7C3AED' },
+    'Quality': { bg: '#EA580C14', border: '#EA580C', color: '#EA580C' },
+    'Documentation': { bg: '#54B84814', border: '#54B848', color: '#54B848' },
+    'Understanding': { bg: '#B4530914', border: '#B45309', color: '#B45309' },
+    'Debugging': { bg: '#dc262614', border: '#dc2626', color: '#dc2626' },
+    'Gap analysis': { bg: '#EA580C14', border: '#EA580C', color: '#EA580C' },
+    'Regression': { bg: '#2563EB14', border: '#2563EB', color: '#2563EB' },
+    'Verification': { bg: '#54B84814', border: '#54B848', color: '#54B848' },
+    'Automation': { bg: '#7C3AED14', border: '#7C3AED', color: '#7C3AED' },
+    'Sign-off': { bg: '#003F2D14', border: '#003F2D', color: '#003F2D' },
+    'Incident': { bg: '#dc262614', border: '#dc2626', color: '#dc2626' },
+    'Runbook': { bg: '#7C3AED14', border: '#7C3AED', color: '#7C3AED' },
+    'Playbook': { bg: '#2563EB14', border: '#2563EB', color: '#2563EB' },
+    'Review': { bg: '#54B84814', border: '#54B848', color: '#54B848' },
+    'Monitoring': { bg: '#003F2D14', border: '#003F2D', color: '#003F2D' },
+  };
+  return map[type] || { bg: '#54B84814', border: '#54B848', color: '#54B848' };
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function highlightPlaceholders(str) {
+  return escapeHtml(str).replace(/\[([^\]]+)\]/g, '<span class="ph">[$1]</span>');
+}
+
+function renderPrompts() {
+  const r = ROLES[currentRole];
+  const filtered = r.prompts.filter((p, i) => {
+    if (!searchQuery) return true;
+    return p.title.toLowerCase().includes(searchQuery) ||
+           p.type.toLowerCase().includes(searchQuery) ||
+           p.tool.toLowerCase().includes(searchQuery) ||
+           p.when.toLowerCase().includes(searchQuery) ||
+           p.prompt.toLowerCase().includes(searchQuery);
+  });
+
+  document.getElementById('search-count').textContent = searchQuery
+    ? `${filtered.length} of ${r.prompts.length} prompts`
+    : `${r.prompts.length} prompts`;
+
+  if (filtered.length === 0) {
+    document.getElementById('prompts-container').innerHTML = `<div class="no-results">No prompts match "${searchQuery}"</div>`;
+    return;
+  }
+
+  document.getElementById('prompts-container').innerHTML = filtered.map((p, i) => {
+    const tc = typeColors(p.type);
+    const globalIdx = r.prompts.indexOf(p);
+    return `
+    <div class="prompt-card" id="prompt-${globalIdx}">
+      <div class="prompt-card-header">
+        <span class="prompt-num">${String(globalIdx+1).padStart(2,'0')}</span>
+        <span class="prompt-title">${p.title}</span>
+        <span class="prompt-type-chip" style="background:${tc.bg};border-color:${tc.border};color:${tc.color}">${p.type}</span>
+      </div>
+      <div class="prompt-meta">
+        <div class="prompt-meta-item"><strong>Tool:</strong> ${p.tool}</div>
+      </div>
+      <div class="prompt-when"><span>When to use:</span> ${p.when}</div>
+      <div class="prompt-body">
+        <div class="prompt-code-wrap">
+          <pre class="prompt-code">${highlightPlaceholders(p.prompt)}</pre>
+          <button class="copy-btn" onclick="copyPrompt(this, ${globalIdx})">Copy</button>
+        </div>
+      </div>
+      <div class="prompt-footer">
+        <div class="prompt-footer-label">✓ WHAT GOOD OUTPUT LOOKS LIKE</div>
+        <div class="prompt-footer-text">${p.good}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function copyPrompt(btn, idx) {
+  const r = ROLES[currentRole];
+  navigator.clipboard.writeText(r.prompts[idx].prompt).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// Init
+renderAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Operating Model — Treasury Technology</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Brand */
+    --td-green:      #54B848;
+    --td-dark:       #003F2D;
+    --td-white:      #FFFFFF;
+
+    /* Derived palette */
+    --td-green-dim:  #54B84815;
+    --td-green-mid:  #54B84830;
+    --td-dark-dim:   #003F2D12;
+    --td-dark-mid:   #003F2D28;
+
+    /* Role colors — vibrant, distinct */
+    --g1: #2563EB;   /* vivid blue — Dev */
+    --g1-dim: #2563EB14;
+    --g1-mid: #2563EB30;
+    --g2: #EA580C;   /* vivid orange — QA */
+    --g2-dim: #EA580C14;
+    --g2-mid: #EA580C30;
+    --g3: #54B848;   /* TD green — BSA */
+    --g3-dim: #54B84814;
+    --g3-mid: #54B84830;
+    --g4: #7C3AED;   /* vivid purple — Prod */
+    --g4-dim: #7C3AED14;
+    --g4-mid: #7C3AED30;
+
+    /* Semantic */
+    --red:       #dc2626;
+    --red-dim:   #dc262614;
+    --amber:     #b45309;
+    --amber-dim: #b4530914;
+
+    /* Surfaces */
+    --bg:       #edf6eb;
+    --surface:  #ffffff;
+    --surface2: #f4faf3;
+    --border:   #c8e4c4;
+    --border2:  #aed4a9;
+
+    /* Text */
+    --text:       #0d2b22;
+    --text-muted: #3d6355;
+    --text-dim:   #8aaa9a;
+
+    --shadow:    0 1px 3px rgba(0,63,45,0.06), 0 4px 12px rgba(0,63,45,0.04);
+    --shadow-md: 0 2px 8px rgba(0,63,45,0.08), 0 8px 24px rgba(0,63,45,0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* HEADER — Dark Green */
+  .header {
+    background: var(--td-dark);
+    padding: 20px 32px 18px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,63,45,0.3);
+  }
+  .header-eyebrow {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.15em; color: rgba(255,255,255,0.5);
+    margin-bottom: 6px;
+  }
+  .header-eyebrow .tag {
+    background: var(--td-green); color: var(--td-dark);
+    padding: 2px 9px; border-radius: 3px; font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .header h1 { font-size: 21px; font-weight: 700; letter-spacing: -0.5px; color: #fff; }
+  .header h1 span { font-weight: 300; font-size: 14px; color: rgba(255,255,255,0.5); margin-left: 10px; }
+
+  /* NAV */
+  .nav {
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+    display: flex; overflow-x: auto;
+    position: sticky; top: 73px; z-index: 99;
+    box-shadow: var(--shadow);
+  }
+  .nav button {
+    background: none; border: none; cursor: pointer;
+    padding: 13px 20px;
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.12em;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent; margin-bottom: -2px;
+    white-space: nowrap; transition: all 0.15s;
+  }
+  .nav button:hover { color: var(--td-dark); }
+  .nav button.active { color: var(--td-dark); border-bottom-color: var(--td-green); font-weight: 500; }
+
+  /* LAYOUT */
+  .main { padding: 32px; max-width: 1020px; margin: 0 auto; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .intro-text { color: var(--text-muted); font-size: 13px; line-height: 1.7; margin-bottom: 22px; max-width: 720px; }
+
+  /* CARD */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
+  .card-header {
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.15em;
+    color: var(--text-dim); margin-bottom: 14px;
+  }
+
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .mb-16 { margin-bottom: 16px; }
+  .mb-20 { margin-bottom: 20px; }
+  .section-divider {
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.15em;
+    color: var(--text-dim); margin: 24px 0 12px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* PRINCIPLE CARDS */
+  .principle-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid; border-radius: 8px; padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .principle-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.15em; margin-bottom: 6px; }
+  .principle-value { font-size: 13px; line-height: 1.5; color: var(--text); }
+
+  /* CHAIN VISUAL */
+  .chain-visual {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px 22px;
+    box-shadow: var(--shadow); margin-bottom: 16px;
+  }
+  .chain-nodes { display: flex; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .chain-node { text-align: center; border-radius: 8px; padding: 10px 14px; min-width: 95px; border: 1px solid; }
+  .chain-node .role-abbr { font-size: 12px; font-weight: 700; }
+  .chain-node .artifact { font-size: 9px; font-family: 'DM Mono', monospace; margin-top: 3px; color: var(--text-muted); }
+  .chain-arrow { padding: 0 5px; font-size: 16px; color: var(--border2); }
+
+  /* MATURITY */
+  .maturity-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; box-shadow: var(--shadow); }
+  .maturity-levels { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .maturity-btn {
+    background: none; border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px; cursor: pointer;
+    text-align: left; min-width: 138px; transition: all 0.15s;
+  }
+  .maturity-level-title { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+  .maturity-level-desc { font-size: 11px; color: var(--text-dim); margin-top: 3px; line-height: 1.4; }
+  .maturity-next { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+  /* ROLES */
+  .role-accordion { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow); }
+  .role-accordion.open { box-shadow: var(--shadow-md); }
+  .role-header { width: 100%; background: none; border: none; cursor: pointer; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; transition: background 0.15s; }
+  .role-header:hover { background: var(--surface2); }
+  .role-header-left { display: flex; align-items: center; gap: 14px; }
+  .role-badge { border-radius: 4px; padding: 4px 10px; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; border: 1px solid; }
+  .role-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .role-toggle { font-size: 20px; font-weight: 300; }
+  .role-body { display: none; padding: 18px 20px 20px; border-top: 1px solid var(--border); }
+  .role-body.open { display: block; }
+  .role-section-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: var(--text-dim); margin-bottom: 8px; }
+  .role-item { font-size: 12px; color: var(--text); margin-bottom: 5px; display: flex; gap: 8px; line-height: 1.5; }
+  .role-ai-item { font-size: 12px; color: var(--text); margin-bottom: 6px; padding: 6px 10px; background: var(--surface2); border-radius: 5px; border-left: 2px solid; line-height: 1.4; }
+  .roadmap-pill { display: inline-block; font-family: 'DM Mono', monospace; font-size: 9px; padding: 1px 6px; border-radius: 3px; background: #fff8e1; color: var(--amber); border: 1px solid #e6c87a; margin-left: 6px; vertical-align: middle; }
+  .active-pill { display: inline-block; font-family: 'DM Mono', monospace; font-size: 9px; padding: 1px 6px; border-radius: 3px; background: var(--td-green-dim); color: var(--td-dark); border: 1px solid var(--td-green-mid); margin-left: 6px; vertical-align: middle; }
+
+  /* AGENTS */
+  .agent-card { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 16px 18px; box-shadow: var(--shadow); border-top: 3px solid; }
+  .agent-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .agent-platform { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-dim); margin-bottom: 10px; }
+  .agent-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.5; }
+  .agent-io { font-family: 'DM Mono', monospace; font-size: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .agent-io-row { display: flex; gap: 8px; margin-bottom: 4px; }
+  .agent-io-label { min-width: 34px; }
+  .agent-io-val { color: var(--text-muted); }
+
+  /* WORKFLOW */
+  .workflow-step { display: flex; align-items: stretch; margin-bottom: 4px; }
+  .step-line { width: 3px; margin-left: 24px; border-radius: 2px; flex-shrink: 0; }
+  .step-card {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 0 8px 8px 0; margin-left: 10px; padding: 13px 16px;
+    display: flex; align-items: flex-start; gap: 14px;
+    box-shadow: var(--shadow); border-left: 3px solid;
+  }
+  .step-num { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-dim); min-width: 20px; padding-top: 2px; }
+  .step-role-badge { border-radius: 4px; padding: 2px 8px; font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; border: 1px solid; min-width: 38px; text-align: center; flex-shrink: 0; }
+  .step-content { flex: 1; }
+  .step-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .step-desc { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+  .step-files { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .file-chip { font-family: 'DM Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 3px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); }
+  .file-chip.optional { border-style: dashed; color: var(--text-dim); }
+  .step-agent { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-dim); flex-shrink: 0; padding-top: 2px; white-space: nowrap; max-width: 140px; text-align: right; }
+
+  /* FEEDBACK */
+  .feedback-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; box-shadow: var(--shadow); margin-top: 20px; }
+  .feedback-item { display: flex; gap: 14px; align-items: flex-start; padding: 12px; border-radius: 7px; margin-bottom: 8px; border: 1px solid; background: var(--surface2); }
+  .feedback-route { display: flex; align-items: center; gap: 6px; min-width: 190px; flex-shrink: 0; }
+  .feedback-from { font-size: 12px; font-weight: 600; }
+  .feedback-arrow { color: var(--text-dim); }
+  .feedback-to { font-size: 12px; color: var(--text-muted); }
+  .feedback-artifact { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+  .feedback-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+  /* FILE TREE */
+  .file-tree { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .tree-section { margin-bottom: 14px; }
+  .tree-section-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 8px; }
+  .tree-item { font-family: 'DM Mono', monospace; padding: 6px 10px; margin-bottom: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; }
+  .tree-item.required { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+  .tree-item.optional { background: transparent; border: 1px dashed var(--border); color: var(--text-muted); }
+  .tree-item.output { background: var(--td-green-dim); border: 1px solid var(--td-green-mid); color: var(--td-dark); }
+  .tree-owner { font-size: 10px; color: var(--text-dim); }
+
+  /* TEST FRAMEWORK */
+  .test-suite-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; box-shadow: var(--shadow); border-top: 3px solid; }
+
+  /* METRICS */
+  .metrics-table { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 20px; }
+  .metrics-header { display: grid; grid-template-columns: 1fr 110px 110px 80px; padding: 10px 18px; background: var(--td-dark); font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.12em; color: rgba(255,255,255,0.6); }
+  .metrics-row { display: grid; grid-template-columns: 1fr 110px 110px 80px; padding: 11px 18px; border-bottom: 1px solid var(--border); font-size: 12px; transition: background 0.1s; }
+  .metrics-row:last-child { border-bottom: none; }
+  .metrics-row:hover { background: var(--surface2); }
+  .metric-target { font-weight: 700; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--td-dark); }
+  .metric-cadence { color: var(--text-muted); font-size: 11px; }
+  .metric-tier { font-size: 10px; font-family: 'DM Mono', monospace; font-weight: 500; }
+  .guardrail-card { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid; border-radius: 7px; padding: 14px 16px; box-shadow: var(--shadow); }
+  .guardrail-title { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .guardrail-item { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; display: flex; gap: 8px; line-height: 1.4; }
+
+  .retro-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; box-shadow: var(--shadow); }
+  .retro-row { display: flex; gap: 16px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .retro-row:last-child { border-bottom: none; }
+  .retro-time { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-dim); min-width: 48px; padding-top: 1px; }
+  .retro-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .retro-detail { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+  /* CHAMPIONS */
+  .champion-quote {
+    background: var(--td-dark); border-radius: 10px;
+    padding: 22px 26px; margin-bottom: 16px;
+  }
+  .champion-quote .label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: var(--td-green); margin-bottom: 10px; }
+  .champion-quote blockquote { font-size: 19px; font-weight: 500; font-style: italic; color: #fff; line-height: 1.5; letter-spacing: -0.2px; }
+  .champion-quote blockquote span { color: var(--td-green); font-style: normal; }
+
+  .champ-card { background: var(--surface); border: 1px solid var(--border); border-top: 3px solid; border-radius: 9px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .champ-title { font-size: 12px; font-weight: 700; margin-bottom: 10px; }
+  .champ-item { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; display: flex; gap: 8px; line-height: 1.4; }
+
+  .cadence-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .cadence-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 10px 14px; min-width: 170px; }
+  .cadence-freq { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.12em; font-weight: 600; color: var(--td-dark); margin-bottom: 4px; }
+  .cadence-action { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+  /* OSFI BANNER */
+  .osfi-banner { background: #fffcf0; border: 1px solid #e8d090; border-left: 3px solid var(--amber); border-radius: 7px; padding: 14px 16px; margin-top: 16px; }
+  .osfi-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: var(--amber); margin-bottom: 6px; }
+  .osfi-text { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+  /* TOOL CARD */
+  .tool-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; box-shadow: var(--shadow); border-top: 3px solid var(--td-dark); }
+  .tool-name { font-size: 16px; font-weight: 700; color: var(--td-dark); margin-bottom: 3px; }
+  .tool-meta { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-dim); display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tool-item { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; display: flex; gap: 8px; line-height: 1.4; }
+
+  /* FOOTER */
+  .footer {
+    background: var(--td-dark); padding: 14px 32px;
+    display: flex; justify-content: space-between;
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    color: rgba(255,255,255,0.4); margin-top: 40px;
+  }
+  .footer .accent { color: var(--td-green); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-eyebrow">
+    <span class="tag">Bank</span>
+    <span>Treasury Technology · Corporate Technology</span>
+  </div>
+  <h1>AI Operating Model <span>v1.2 · 2026</span></h1>
+</div>
+
+<nav class="nav">
+  <button class="active" onclick="setTab(0)">OVERVIEW</button>
+  <button onclick="setTab(1)">TEAM ROLES</button>
+  <button onclick="setTab(2)">AGENT INVENTORY</button>
+  <button onclick="setTab(3)">WORKFLOW</button>
+  <button onclick="setTab(4)">TEST FRAMEWORK</button>
+  <button onclick="setTab(5)">CHAMPIONS</button>
+  <button onclick="setTab(6)">METRICS &amp; GOVERNANCE</button>
+</nav>
+
+<main class="main">
+
+  <!-- ── OVERVIEW ── -->
+  <div class="section active" id="tab-0">
+    <p class="intro-text">A compound engineering operating model for a treasury tech team of BSAs, Developers, QA/QE Engineers, and Prod Support. Custom GitHub Copilot agents are embedded at every major handoff. Agents supplement human judgment — they never replace it.</p>
+
+    <div class="grid-2 mb-16">
+      <div class="principle-card" style="border-left-color:var(--td-green)">
+        <div class="principle-label" style="color:var(--td-green)">Core Principle</div>
+        <div class="principle-value">Structured artifact chain per Jira ticket — each agent builds on the last</div>
+      </div>
+      <div class="principle-card" style="border-left-color:var(--g1)">
+        <div class="principle-label" style="color:var(--g1)">Tool Philosophy</div>
+        <div class="principle-value">GitHub Copilot for Dev/QA (VS Code). M365 Copilot for BSA/Prod Support. No direct AI outside enterprise tools.</div>
+      </div>
+      <div class="principle-card" style="border-left-color:var(--amber)">
+        <div class="principle-label" style="color:var(--amber)">Regulatory Posture</div>
+        <div class="principle-value">AI assists, human validates. Full JIRA-ID traceability from requirement to test to runbook.</div>
+      </div>
+      <div class="principle-card" style="border-left-color:var(--g4)">
+        <div class="principle-label" style="color:var(--g4)">Quality Gate</div>
+        <div class="principle-value">No ticket moves to QA without code review. No prod without QA sign-off.</div>
+      </div>
+    </div>
+
+    <div class="chain-visual mb-16">
+      <div class="card-header">END-TO-END WORKFLOW — AT A GLANCE</div>
+      <div class="chain-nodes">
+        <div class="chain-node" style="background:var(--g3-dim);border-color:var(--g3)"><div class="role-abbr" style="color:var(--g3)">BSA</div><div class="artifact">reqs + testplan-bsa</div></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node" style="background:var(--g1-dim);border-color:var(--g1)"><div class="role-abbr" style="color:var(--g1)">Plan Agent</div><div class="artifact">JIRA-####-plan.md</div></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node" style="background:var(--g1-dim);border-color:var(--g1)"><div class="role-abbr" style="color:var(--g1)">Dev Agent</div><div class="artifact">code + unit tests</div></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node" style="background:var(--g4-dim);border-color:var(--g4)"><div class="role-abbr" style="color:var(--g4)">Code Review</div><div class="artifact">review output</div></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node" style="background:var(--g2-dim);border-color:var(--g2)"><div class="role-abbr" style="color:var(--g2)">QA</div><div class="artifact">testplan-qa + sign-off</div></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node" style="background:var(--g4-dim);border-color:var(--g4)"><div class="role-abbr" style="color:var(--g4)">Prod Support</div><div class="artifact">runbook</div></div>
+      </div>
+      <p style="margin-top:12px;font-size:11px;color:var(--text-dim);font-style:italic;font-family:'DM Mono',monospace;">One artifact folder per Jira ticket. JIRA-#### naming throughout. Test results sync to Xray automatically.</p>
+    </div>
+
+    <div class="maturity-card">
+      <div class="card-header">TEAM MATURITY — WHERE ARE YOU NOW?</div>
+      <div class="maturity-levels">
+        <button class="maturity-btn" onclick="setMaturity(0)"><div class="maturity-level-title">L0 · Ad Hoc</div><div class="maturity-level-desc">AI used individually, no shared patterns</div></button>
+        <button class="maturity-btn" onclick="setMaturity(1)"><div class="maturity-level-title">L1 · Enabled</div><div class="maturity-level-desc">Tool access + templates in place</div></button>
+        <button class="maturity-btn active" onclick="setMaturity(2)" style="border-color:var(--td-green);background:var(--td-green-dim)"><div class="maturity-level-title" style="color:var(--td-dark)">L2 · Compound</div><div class="maturity-level-desc">Agent chain active on tickets today</div></button>
+        <button class="maturity-btn" onclick="setMaturity(3)"><div class="maturity-level-title">L3 · Self-Improving</div><div class="maturity-level-desc">Chain retros + ROI measured</div></button>
+      </div>
+      <div class="maturity-next" id="maturity-next">
+        <span style="color:var(--td-dark);font-weight:600">↑ Next level (L3 · Self-Improving):</span> Instrument metrics. Champions lead retros. ROI reported to leadership quarterly.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TEAM ROLES ── -->
+  <div class="section" id="tab-1">
+    <p class="intro-text">Each role has a distinct tool profile and artifact responsibility. Agents supplement — humans own the judgment and sign-off at every step.</p>
+    <div id="roles-container"></div>
+  </div>
+
+  <!-- ── AGENT INVENTORY ── -->
+  <div class="section" id="tab-2">
+    <p class="intro-text">All agents are custom GitHub Copilot agents running inside VS Code. Active agents are in production use today. In-progress agents are being built and will expand the chain.</p>
+    <div class="section-divider">ACTIVE TODAY</div>
+    <div class="grid-3 mb-20" id="active-agents"></div>
+    <div class="section-divider">IN PROGRESS</div>
+    <div class="grid-3 mb-20" id="inprogress-agents"></div>
+    <div class="card" style="padding:18px 20px;">
+      <div class="card-header">REFERENCE LIBRARY — AGENT-PRODUCED, HUMAN-APPROVED BEFORE USE</div>
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:14px;">Arch and compliance agents produce standing reference docs stored in the repo. A human must review and approve any change before the doc is consumed by the planning agent. CODEOWNERS enforces the approval gate — no auto-merge on reference library files.</p>
+      <div class="grid-2">
+        <div style="background:var(--surface2);border:1px dashed var(--border2);border-radius:7px;padding:12px 14px;">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--td-dark);font-weight:600;margin-bottom:4px;">architecture.md</div>
+          <div style="font-size:11px;color:var(--text-muted);line-height:1.5;">Produced by Solution Architect agent. Physical/logical architecture standards, integration patterns, API conventions. Arch team approves before merge.</div>
+        </div>
+        <div style="background:var(--surface2);border:1px dashed var(--border2);border-radius:7px;padding:12px 14px;">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--td-dark);font-weight:600;margin-bottom:4px;">security-controls.md</div>
+          <div style="font-size:11px;color:var(--text-muted);line-height:1.5;">Produced by Regulatory/Compliance agent. Security controls, OSFI data handling rules. Security team approves before merge.</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <div class="card-header" style="margin-bottom:10px;">SHARED REUSABLES — ALSO IN REPO</div>
+        <div class="grid-2">
+          <div>
+            <div class="role-item"><span style="color:var(--td-green)">·</span><span style="font-family:'DM Mono',monospace;font-size:11px;">prompts/</span> — shared prompt library, organized by role</div>
+            <div class="role-item"><span style="color:var(--td-green)">·</span><span style="font-family:'DM Mono',monospace;font-size:11px;">templates/</span> — requirements, testplan, runbook templates</div>
+          </div>
+          <div>
+            <div class="role-item"><span style="color:var(--td-green)">·</span><span style="font-family:'DM Mono',monospace;font-size:11px;">patterns/</span> — reusable implementation patterns</div>
+            <div class="role-item"><span style="color:var(--td-green)">·</span><span style="font-family:'DM Mono',monospace;font-size:11px;">known-issues.md</span> — agent quirks, failure patterns, workarounds</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── WORKFLOW ── -->
+  <div class="section" id="tab-3">
+    <p class="intro-text">Two distinct stores. The repo holds reusable agent infrastructure — version-controlled and human-approved. Jira and Xray hold all work artifacts — the system of record for every ticket.</p>
+
+    <div class="grid-2 mb-16">
+      <!-- REPO BUCKET -->
+      <div class="file-tree" style="margin-bottom:0">
+        <div class="card-header" style="color:var(--g1)">REPO — AGENT INFRASTRUCTURE &amp; REUSABLE ASSETS</div>
+        <p style="font-size:11px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">Version-controlled. Human-approved before use. Shared across all tickets.</p>
+        <div class="tree-section">
+          <div class="tree-section-label">AGENT DEFINITIONS</div>
+          <div class="tree-item required"><span style="color:var(--g1)">agent.md</span><span class="tree-owner">per agent</span></div>
+          <div class="tree-item required"><span style="color:var(--g1)">copilot-instructions.md</span><span class="tree-owner">per agent</span></div>
+          <div class="tree-item required"><span style="color:var(--g1)">skills.md</span><span class="tree-owner">per agent</span></div>
+        </div>
+        <div class="tree-section">
+          <div class="tree-section-label">REFERENCE LIBRARY (human-approved before consumed)</div>
+          <div class="tree-item optional"><span style="color:var(--g4)">architecture.md</span><span class="tree-owner">architect agent → human approves</span></div>
+          <div class="tree-item optional"><span style="color:var(--g4)">security-controls.md</span><span class="tree-owner">compliance agent → human approves</span></div>
+        </div>
+        <div class="tree-section">
+          <div class="tree-section-label">SHARED REUSABLES</div>
+          <div class="tree-item required"><span style="color:var(--td-green)">prompts/</span><span class="tree-owner">by role — BSA, Dev, QA, Prod</span></div>
+          <div class="tree-item required"><span style="color:var(--td-green)">templates/</span><span class="tree-owner">requirements, testplan, runbook</span></div>
+          <div class="tree-item required"><span style="color:var(--td-green)">patterns/</span><span class="tree-owner">reusable implementation patterns</span></div>
+          <div class="tree-item required"><span style="color:var(--td-green)">known-issues.md</span><span class="tree-owner">agent quirks, workarounds</span></div>
+        </div>
+      </div>
+
+      <!-- JIRA BUCKET -->
+      <div class="file-tree" style="margin-bottom:0">
+        <div class="card-header" style="color:var(--g2)">JIRA / XRAY — SYSTEM OF RECORD FOR ALL WORK</div>
+        <p style="font-size:11px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">All work artifacts live here. Ephemeral agent outputs (plans) attach to the ticket or stay in-session.</p>
+        <div class="tree-section">
+          <div class="tree-section-label">JIRA TICKET</div>
+          <div class="tree-item required"><span style="color:var(--g2)">Requirements</span><span class="tree-owner">BSA agent output → Jira description/attachment</span></div>
+          <div class="tree-item required"><span style="color:var(--g2)">Implementation plan</span><span class="tree-owner">Plan agent → ephemeral or attached to ticket</span></div>
+          <div class="tree-item required"><span style="color:var(--g2)">ai-used field</span><span class="tree-owner">mandatory on ticket close</span></div>
+        </div>
+        <div class="tree-section">
+          <div class="tree-section-label">XRAY (JTMF)</div>
+          <div class="tree-item required"><span style="color:var(--td-green)">JIRA-####-TC01…</span><span class="tree-owner">BSA test cases</span></div>
+          <div class="tree-item required"><span style="color:var(--g2)">JIRA-####-QA01…</span><span class="tree-owner">QA test cases</span></div>
+          <div class="tree-item output"><span>Test results manifest</span><span class="tree-owner" style="color:var(--td-dark)">dev agent → Xray REST API</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIERED CHAIN -->
+    <div class="card mb-16" style="padding:20px 22px;">
+      <div class="card-header">TIERED CHAIN — NOT EVERY CHANGE NEEDS THE FULL WORKFLOW</div>
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:16px;">The chain scales to change complexity. Use judgment — when in doubt, go one tier up. The <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--td-dark)">ai-used</span> tag is required regardless of tier if AI was used at any step.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:var(--g1-dim);border:1px solid var(--g1);border-left:4px solid var(--g1);border-radius:7px;padding:14px 16px;display:flex;gap:16px;align-items:flex-start;">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--g1);min-width:100px;padding-top:2px;">STANDARD</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">New feature or significant change</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.5;">Full chain: BSA agent → Plan agent → Dev agent → Code review → QA → Prod Support. All artifacts in Jira/Xray. Human review at every handoff.</div>
+          </div>
+        </div>
+        <div style="background:var(--amber-dim);border:1px solid var(--amber);border-left:4px solid var(--amber);border-radius:7px;padding:14px 16px;display:flex;gap:16px;align-items:flex-start;">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--amber);min-width:100px;padding-top:2px;">LIGHTWEIGHT</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Minor change, enhancement, small bug fix</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.5;">BSA updates requirements in Jira → Dev agent or manual dev → QA sign-off. Plan agent optional. Prod Support as needed.</div>
+          </div>
+        </div>
+        <div style="background:var(--g2-dim);border:1px solid var(--g2);border-left:4px solid var(--g2);border-radius:7px;padding:14px 16px;display:flex;gap:16px;align-items:flex-start;">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--g2);min-width:100px;padding-top:2px;">EXPEDITED</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Hotfix, config change, urgent prod fix</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.5;">Manual dev → peer review → QA sign-off. AI is optional. If AI was used, tag it. Post-hoc chain review required within one sprint.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHANGE PROPAGATION RULE -->
+    <div class="osfi-banner mb-16" style="background:#f0f7ff;border-color:#93c5fd;border-left-color:var(--g1);">
+      <div class="osfi-label" style="color:var(--g1)">REQUIREMENTS CHANGE PROPAGATION RULE</div>
+      <div class="osfi-text">If requirements or BSA test cases are updated after the plan agent has already run, the plan agent <strong>must be re-run</strong> before dev continues. No exceptions. This prevents artifact drift between what was specified and what was built.</div>
+    </div>
+
+    <div class="section-divider">STEP-BY-STEP WORKFLOW</div>
+    <div id="workflow-container" class="mb-20"></div>
+    <div class="feedback-section">
+      <div class="card-header">FEEDBACK LOOPS — WHERE THE CHAIN REVERSES</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.6;">Defects caught here are cheaper than defects caught in prod. Each loop has a named artifact so nothing falls through informally.</p>
+      <div class="feedback-item" style="border-color:#fde68a">
+        <div class="feedback-route"><span class="feedback-from" style="color:var(--g2)">QA agent</span><span class="feedback-arrow">→</span><span class="feedback-to">BSA</span></div>
+        <div><div class="feedback-artifact" style="color:var(--g2)">Requirements Gap Report</div><div class="feedback-desc">QA agent reviews requirements + testplan-bsa, surfaces missing AC, negative cases, and regression impact. BSA updates before dev proceeds.</div></div>
+      </div>
+      <div class="feedback-item" style="border-color:#bfdbfe">
+        <div class="feedback-route"><span class="feedback-from" style="color:var(--g1)">Code review agent</span><span class="feedback-arrow">→</span><span class="feedback-to">Dev</span></div>
+        <div><div class="feedback-artifact" style="color:var(--g1)">Code Review Output</div><div class="feedback-desc">Dev-triggered after dev agent runs. Reviews for performance, security, risk. Dev resolves before handing to QA.</div></div>
+      </div>
+      <div class="feedback-item" style="border-color:#ddd6fe">
+        <div class="feedback-route"><span class="feedback-from" style="color:var(--g4)">Prod Support</span><span class="feedback-arrow">→</span><span class="feedback-to">Dev</span></div>
+        <div><div class="feedback-artifact" style="color:var(--g4)">Operability Review</div><div class="feedback-desc">Runbook generation surfaces monitoring gaps, missing rollback steps. Dev addresses before release.</div></div>
+      </div>
+      <div class="feedback-item" style="border-color:#fecaca">
+        <div class="feedback-route"><span class="feedback-from" style="color:var(--red)">Post-Incident</span><span class="feedback-arrow">→</span><span class="feedback-to">All</span></div>
+        <div><div class="feedback-artifact" style="color:var(--red)">Chain Trace</div><div class="feedback-desc">Incident mapped back to artifact chain. Artifacts updated and Xray regression suite updated accordingly.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TEST FRAMEWORK ── -->
+  <div class="section" id="tab-4">
+    <p class="intro-text">BSA and QA own distinct test suites with clear boundaries. JIRA-ID naming throughout. Xray (JTMF) is the system of record. The dev agent emits a results manifest that syncs automatically.</p>
+    <div class="grid-2 mb-16">
+      <div class="test-suite-card" style="border-top-color:var(--td-green)">
+        <div class="card-header" style="color:var(--td-dark)">BSA TEST SUITE</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;line-height:1.6;">Functional verification — does the feature do exactly what the requirement says?</div>
+        <div class="role-section-label">ID FORMAT</div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--td-dark);background:var(--td-green-dim);padding:6px 10px;border-radius:4px;margin-bottom:12px;border:1px solid var(--td-green-mid)">JIRA-1234-TC01, TC02…</div>
+        <div class="role-section-label">CASE TYPES</div>
+        <div class="role-item"><span style="color:var(--td-green)">·</span>Happy path — requirement fulfilled with correct inputs/outputs</div>
+        <div class="role-item"><span style="color:var(--td-green)">·</span>Boundary and edge cases on business logic</div>
+        <div class="role-item"><span style="color:var(--td-green)">·</span>Negative cases tied to acceptance criteria</div>
+        <div class="role-section-label" style="margin-top:10px">FEEDS INTO</div>
+        <div class="role-item"><span style="color:var(--td-green)">→</span>Plan agent (drives implementation)</div>
+        <div class="role-item"><span style="color:var(--td-green)">→</span>Dev agent (generates unit/component tests vs TC-IDs)</div>
+        <div class="role-item"><span style="color:var(--td-green)">→</span>Xray BSA suite</div>
+      </div>
+      <div class="test-suite-card" style="border-top-color:var(--g2)">
+        <div class="card-header" style="color:var(--g2)">QA TEST SUITE</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;line-height:1.6;">System confidence — does the feature work in context of everything else?</div>
+        <div class="role-section-label">ID FORMAT</div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--g2);background:var(--g2-dim);padding:6px 10px;border-radius:4px;margin-bottom:12px;border:1px solid var(--g2-mid)">JIRA-1234-QA01, QA02…</div>
+        <div class="role-section-label">CASE TYPES</div>
+        <div class="role-item"><span style="color:var(--g2)">·</span>Integration — feature in context of other systems (e.g. Murex → downstream)</div>
+        <div class="role-item"><span style="color:var(--g2)">·</span>Regression — impact on existing functionality</div>
+        <div class="role-item"><span style="color:var(--g2)">·</span>Full journey — end-to-end user/system flows</div>
+        <div class="role-section-label" style="margin-top:10px">INFORMED BY</div>
+        <div class="role-item"><span style="color:var(--g2)">→</span>QA agent gap analysis on BSA testplan + requirements</div>
+        <div class="role-item"><span style="color:var(--g2)">→</span>QA agent regression impact analysis against Xray suite</div>
+        <div class="role-item"><span style="color:var(--g2)">→</span>Xray QA suite + canonical regression suite</div>
+      </div>
+    </div>
+
+    <div class="card mb-16" style="padding:20px 22px;">
+      <div class="card-header">TEST RESULTS MANIFEST — CLOSING THE 10 → 40 TEST GAP</div>
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:16px;">The dev agent runs 10 BSA test cases but also generates ~30 unit/component tests. Without a manifest those extra runs are invisible. The manifest makes every run accountable and pushes outcomes back to Xray.</p>
+      <div class="grid-2">
+        <div>
+          <div class="role-section-label">MANIFEST STRUCTURE — PER BSA CASE</div>
+          <div style="background:var(--td-dark);border-radius:6px;padding:14px 16px;font-family:'DM Mono',monospace;font-size:11px;line-height:2;">
+            <span style="color:var(--td-green)">id:</span> <span style="color:#fff">JIRA-1234-TC01</span><br>
+            <span style="color:var(--td-green)">status:</span> <span style="color:rgba(255,255,255,0.7)">PASS | FAIL | MANUAL_REQUIRED | SKIPPED</span><br>
+            <span style="color:var(--td-green)">automation:</span> <span style="color:rgba(255,255,255,0.7)">automated | manual | tbd</span><br>
+            <span style="color:var(--td-green)">reason:</span> <span style="color:rgba(255,255,255,0.4)"># if not run — why</span><br>
+            <span style="color:var(--td-green)">type:</span> <span style="color:rgba(255,255,255,0.7)">functional | integration | regression</span><br>
+            <span style="color:var(--td-green)">owner:</span> <span style="color:rgba(255,255,255,0.7)">bsa | qa</span>
+          </div>
+        </div>
+        <div>
+          <div class="role-section-label">STATUS DEFINITIONS</div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 14px;">
+            <div style="display:flex;gap:12px;align-items:baseline;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)"><span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--g2);min-width:130px">PASS</span><span style="font-size:11px;color:var(--text-muted)">Agent ran and verified</span></div>
+            <div style="display:flex;gap:12px;align-items:baseline;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)"><span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--red);min-width:130px">FAIL</span><span style="font-size:11px;color:var(--text-muted)">Agent ran, assertion failed</span></div>
+            <div style="display:flex;gap:12px;align-items:baseline;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)"><span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--amber);min-width:130px">MANUAL_REQUIRED</span><span style="font-size:11px;color:var(--text-muted)">Cannot automate — needs human QA</span></div>
+            <div style="display:flex;gap:12px;align-items:baseline"><span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--text-dim);min-width:130px">SKIPPED</span><span style="font-size:11px;color:var(--text-muted)">Agent couldn't test, reason logged</span></div>
+          </div>
+          <div style="margin-top:10px;font-size:11px;color:var(--text-dim);line-height:1.5;">Unit/component tests (~30 extras) grouped separately — visible to devs but not pushed to Xray individually.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:20px 22px;">
+      <div class="card-header">XRAY (JTMF) — REGRESSION SUITE VERSIONING</div>
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:16px;">Xray is the system of record. The canonical regression suite always holds the current version — superseded cases are archived, not deleted. QA agent identifies which cases a new requirement touches.</p>
+      <div class="grid-2">
+        <div>
+          <div class="role-section-label">HOW VERSIONING WORKS</div>
+          <div class="role-item"><span style="color:var(--td-green)">·</span>JIRA-1234-TC01 tests addition of two values</div>
+          <div class="role-item"><span style="color:var(--td-green)">·</span>JIRA-5678 changes logic to subtraction</div>
+          <div class="role-item"><span style="color:var(--td-green)">·</span>TC01 archived → JIRA-5678-TC01 is the replacement</div>
+          <div class="role-item"><span style="color:var(--td-green)">·</span>Regression suite holds current canonical case only</div>
+          <div class="role-item"><span style="color:var(--td-green)">·</span>QA agent flags which Xray cases a new req touches</div>
+          <div class="role-item"><span style="color:var(--td-green)">·</span>Traceability bidirectional: requirement ↔ test case</div>
+        </div>
+        <div>
+          <div class="role-section-label">MANIFEST → XRAY PUSH FLOW</div>
+          <div class="role-item"><span style="color:var(--td-dark);font-weight:600">1.</span>Dev agent emits JIRA-####-test-results-manifest.json</div>
+          <div class="role-item"><span style="color:var(--td-dark);font-weight:600">2.</span>Wrapper script calls Xray REST API (Xray JSON format)</div>
+          <div class="role-item"><span style="color:var(--td-dark);font-weight:600">3.</span>PASS/FAIL results land against correct TC-IDs in Xray</div>
+          <div class="role-item"><span style="color:var(--td-dark);font-weight:600">4.</span>MANUAL_REQUIRED cases surface as TODO for human QA</div>
+          <div class="role-item"><span style="color:var(--td-dark);font-weight:600">5.</span>BSA and QA suites remain in separate Xray components</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHAMPIONS ── -->
+  <div class="section" id="tab-5">
+    <div class="champion-quote mb-16">
+      <div class="label">FOUNDING PRINCIPLE</div>
+      <blockquote>"Central AI gives you the map. <span>Your champion knows the terrain.</span>"</blockquote>
+    </div>
+    <div class="grid-2 mb-16">
+      <div class="champ-card" style="border-top-color:var(--td-green)"><div class="champ-title" style="color:var(--td-dark)">What a Champion Is</div><div class="champ-item"><span style="color:var(--td-green)">·</span>Embedded within their role (BSA, Dev, QA, Prod)</div><div class="champ-item"><span style="color:var(--td-green)">·</span>Primary contact for AI questions on the team</div><div class="champ-item"><span style="color:var(--td-green)">·</span>Pilots new agents before team-wide rollout</div><div class="champ-item"><span style="color:var(--td-green)">·</span>Runs retros and surfaces what's working / not</div></div>
+      <div class="champ-card" style="border-top-color:var(--red)"><div class="champ-title" style="color:var(--red)">What a Champion Is Not</div><div class="champ-item"><span style="color:var(--red)">·</span>A replacement for human judgment or sign-off</div><div class="champ-item"><span style="color:var(--red)">·</span>A blocker — they accelerate, not gate</div><div class="champ-item"><span style="color:var(--red)">·</span>Responsible for tool access or licensing</div><div class="champ-item"><span style="color:var(--red)">·</span>A replacement for the central AI program</div></div>
+      <div class="champ-card" style="border-top-color:var(--g1)"><div class="champ-title" style="color:var(--g1)">Champion Responsibilities</div><div class="champ-item"><span style="color:var(--g1)">·</span>Own the agent prompt library for their role</div><div class="champ-item"><span style="color:var(--g1)">·</span>Run chain retros quarterly</div><div class="champ-item"><span style="color:var(--g1)">·</span>Submit ROI data to AVP monthly</div><div class="champ-item"><span style="color:var(--g1)">·</span>Onboard new team members to the agent chain</div><div class="champ-item"><span style="color:var(--g1)">·</span>Escalate enterprise blockers (tool access, policy)</div></div>
+      <div class="champ-card" style="border-top-color:var(--g4)"><div class="champ-title" style="color:var(--g4)">Selection Criteria</div><div class="champ-item"><span style="color:var(--g4)">·</span>Intrinsic curiosity about AI — not assigned by default</div><div class="champ-item"><span style="color:var(--g4)">·</span>Strong in their functional role first</div><div class="champ-item"><span style="color:var(--g4)">·</span>Communicates clearly across roles</div><div class="champ-item"><span style="color:var(--g4)">·</span>One champion per role minimum</div></div>
+    </div>
+    <div class="card" style="padding:20px 22px">
+      <div class="card-header">CHAMPION CADENCE</div>
+      <div class="cadence-grid">
+        <div class="cadence-item"><div class="cadence-freq">WEEKLY</div><div class="cadence-action">Quick check-in: What's the AI win this sprint?</div></div>
+        <div class="cadence-item"><div class="cadence-freq">MONTHLY</div><div class="cadence-action">Submit ROI data + agent prompt library updates to AVP</div></div>
+        <div class="cadence-item"><div class="cadence-freq">QUARTERLY</div><div class="cadence-action">Chain retro — what compounded well, what broke?</div></div>
+        <div class="cadence-item"><div class="cadence-freq">ANNUALLY</div><div class="cadence-action">Operating model review — maturity + agent roadmap</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── METRICS & GOVERNANCE ── -->
+  <div class="section" id="tab-6">
+    <div class="metrics-table mb-20">
+      <div class="metrics-header"><span>METRIC</span><span>TARGET</span><span>CADENCE</span><span>TIER</span></div>
+      <div class="metrics-row"><span>Req → Test Traceability (BSA suite)</span><span class="metric-target">95%+</span><span class="metric-cadence">Per sprint</span><span class="metric-tier" style="color:var(--g1)">Quality</span></div>
+      <div class="metrics-row"><span>Requirements Gap Rate (QA agent findings)</span><span class="metric-target">&lt; 10%</span><span class="metric-cadence">Per sprint</span><span class="metric-tier" style="color:var(--g1)">Quality</span></div>
+      <div class="metrics-row"><span>Test Manifest Coverage (all TC-### accounted for)</span><span class="metric-target">100%</span><span class="metric-cadence">Per ticket</span><span class="metric-tier" style="color:var(--g1)">Quality</span></div>
+      <div class="metrics-row"><span>MANUAL_REQUIRED Cases Executed Pre-UAT</span><span class="metric-target">100%</span><span class="metric-cadence">Per ticket</span><span class="metric-tier" style="color:var(--g1)">Quality</span></div>
+      <div class="metrics-row"><span>Copilot Accept Rate (Dev)</span><span class="metric-target">≥ 30%</span><span class="metric-cadence">Monthly</span><span class="metric-tier" style="color:var(--g2)">Adoption</span></div>
+      <div class="metrics-row"><span>Agent Chain Usage (tickets using full chain)</span><span class="metric-target">Trend ↑</span><span class="metric-cadence">Monthly</span><span class="metric-tier" style="color:var(--g2)">Adoption</span></div>
+      <div class="metrics-row"><span>Code Review Agent Findings Resolved Pre-QA</span><span class="metric-target">100%</span><span class="metric-cadence">Per ticket</span><span class="metric-tier" style="color:var(--g1)">Quality</span></div>
+      <div class="metrics-row"><span>Xray Regression Suite — Stale Cases</span><span class="metric-target">0</span><span class="metric-cadence">Quarterly</span><span class="metric-tier" style="color:var(--g4)">Health</span></div>
+      <div class="metrics-row"><span>Chain Retro: Recurring Breakpoints</span><span class="metric-target">0 recurring</span><span class="metric-cadence">Quarterly</span><span class="metric-tier" style="color:var(--g4)">Health</span></div>
+    </div>
+    <div class="grid-2 mb-20">
+      <div class="guardrail-card" style="border-left-color:var(--g1)"><div class="guardrail-title" style="color:var(--g1)">Code Quality</div><div class="guardrail-item"><span style="color:var(--g1)">·</span>ruff (linting), mypy (type checking), bandit (security)</div><div class="guardrail-item"><span style="color:var(--g1)">·</span>CLAUDE.md / copilot-instructions.md per repo</div><div class="guardrail-item"><span style="color:var(--g1)">·</span>Code review agent mandatory before QA handoff (Standard tier)</div><div class="guardrail-item"><span style="color:var(--g1)">·</span>YAML/Pydantic config patterns for pipeline artifacts</div></div>
+      <div class="guardrail-card" style="border-left-color:var(--td-green)"><div class="guardrail-title" style="color:var(--td-dark)">AI Tool Governance</div><div class="guardrail-item"><span style="color:var(--td-green)">·</span>All AI via enterprise tools only — no direct AI access</div><div class="guardrail-item"><span style="color:var(--td-green)">·</span>GitHub Copilot — enterprise licensed, Dev + QA in VS Code</div><div class="guardrail-item"><span style="color:var(--td-green)">·</span>M365 Copilot — BSA + Prod Support, O365 tenant boundary</div><div class="guardrail-item"><span style="color:var(--td-green)">·</span>No third-party AI tools without OSFI B-10/B-13 review</div></div>
+      <div class="guardrail-card" style="border-left-color:var(--amber)"><div class="guardrail-title" style="color:var(--amber)">Regulatory</div><div class="guardrail-item"><span style="color:var(--amber)">·</span>OSFI B-10/B-13 — no sensitive data in agent prompts</div><div class="guardrail-item"><span style="color:var(--amber)">·</span>Basel III / BCBS 239 data lineage via JIRA-ID artifact chain</div><div class="guardrail-item"><span style="color:var(--amber)">·</span>SA-CCR / CVA / FRTB — agents assist, humans validate</div><div class="guardrail-item"><span style="color:var(--amber)">·</span>Xray provides full audit trail from req to test evidence</div></div>
+      <div class="guardrail-card" style="border-left-color:var(--g4)"><div class="guardrail-title" style="color:var(--g4)">Repo Standards</div><div class="guardrail-item"><span style="color:var(--g4)">·</span>Repo = agent infrastructure only — no work artifacts</div><div class="guardrail-item"><span style="color:var(--g4)">·</span>CODEOWNERS gate on all reference library files</div><div class="guardrail-item"><span style="color:var(--g4)">·</span>Shared prompts, templates, patterns versioned in repo</div><div class="guardrail-item"><span style="color:var(--g4)">·</span>Xray test evidence linked to SharePoint for sign-off</div></div>
+    </div>
+
+    <div class="card mb-20" style="padding:20px 22px; border-left: 4px solid var(--g1);">
+      <div class="card-header">OPERATING RULES — NON-NEGOTIABLE</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:12px;background:var(--g1-dim);border-radius:7px;border:1px solid var(--g1)">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--g1);min-width:160px;padding-top:2px;">ai-used TAG — MANDATORY</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">The <span style="font-family:'DM Mono',monospace;color:var(--td-dark)">ai-used</span> Jira field must be completed on every ticket close, regardless of tier. This is a required workflow field — not a label or convention. Jira admin to enforce. Enables ROI measurement and outcome tracking.</div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:12px;background:var(--amber-dim);border-radius:7px;border:1px solid var(--amber)">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--amber);min-width:160px;padding-top:2px;">CHANGE PROPAGATION RULE</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">If requirements or BSA test cases change after the plan agent has run, the plan agent must be re-run before dev continues. No exceptions. Prevents artifact drift between specification and implementation.</div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:12px;background:var(--g2-dim);border-radius:7px;border:1px solid var(--g2)">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--g2);min-width:160px;padding-top:2px;">REFERENCE LIB APPROVAL</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">No reference library file (<span style="font-family:'DM Mono',monospace;color:var(--td-dark)">architecture.md</span>, <span style="font-family:'DM Mono',monospace;color:var(--td-dark)">security-controls.md</span>) may be consumed by an agent without a human-approved merge. CODEOWNERS enforces this — no exceptions.</div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:12px;background:var(--g4-dim);border-radius:7px;border:1px solid var(--g4)">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--g4);min-width:160px;padding-top:2px;">HUMAN ACCOUNTABILITY</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Agents are tools. Every role remains accountable for the artifacts they own. BSA owns requirements and BSA test cases. QA owns QA test cases and sign-off. Dev owns code. AI output does not transfer accountability.</div>
+        </div>
+      </div>
+    </div>
+    <div class="retro-section">
+      <div class="card-header">QUARTERLY CHAIN RETRO — AGENDA</div>
+      <div class="retro-row"><div class="retro-time">10 min</div><div><div class="retro-title">What compounded well?</div><div class="retro-detail">Name 1–2 tickets where the agent chain strengthened quality or speed</div></div></div>
+      <div class="retro-row"><div class="retro-time">10 min</div><div><div class="retro-title">Where did the chain break?</div><div class="retro-detail">Which agent, artifact, or handoff was the weak link? Any recurring MANUAL_REQUIRED patterns?</div></div></div>
+      <div class="retro-row"><div class="retro-time">10 min</div><div><div class="retro-title">ROI snapshot</div><div class="retro-detail">Hours saved, traceability %, gap rate, Copilot accept rate — trend vs last quarter</div></div></div>
+      <div class="retro-row"><div class="retro-time">10 min</div><div><div class="retro-title">Next quarter action</div><div class="retro-detail">1 specific change — agent prompt update, new agent rollout, or process fix. Not vague.</div></div></div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <span>TD Treasury Technology · AI Operating Model v1.2</span>
+  <span class="accent">Compound Engineering Framework</span>
+</footer>
+
+<script>
+const C = {
+  bsa:  { color:'#54B848', dim:'#54B84814' },
+  dev:  { color:'#2563EB', dim:'#2563EB14' },
+  qa:   { color:'#EA580C', dim:'#EA580C14' },
+  prod: { color:'#7C3AED', dim:'#7C3AED14' },
+};
+
+const roles = [
+  { id:'bsa', title:'Business Systems Analyst', abbr:'BSA', ...C.bsa,
+    tools:[
+      {name:'M365 Copilot', note:'Primary — email, Teams, SharePoint, Confluence', active:true},
+      {name:'GitHub Copilot', note:'Available, lighter use expected', active:true},
+      {name:'BSA Agent (custom GitHub Copilot)', note:'Active today', active:true},
+    ],
+    produces:['Requirements → Jira ticket','BSA test cases → Xray (TC01, TC02…)'],
+    consumes:['Meeting notes','Emails','Stakeholder input','Regulatory text'],
+    aiMoments:[
+      'BSA agent: meeting notes + emails → structured requirements.md',
+      'BSA agent: requirements → testplan-bsa.md with JIRA-ID test cases',
+      'M365 Copilot: stakeholder comms, Confluence drafting, Teams summaries',
+      'Self-review spec for completeness before handoff to Plan agent',
+    ]
+  },
+  { id:'dev', title:'Developer', abbr:'Dev', ...C.dev,
+    tools:[
+      {name:'GitHub Copilot in VS Code', note:'Claude + GPT via model picker', active:true},
+      {name:'Plan Agent (custom GitHub Copilot)', note:'Active today', active:true},
+      {name:'Dev Agent — Frontend (custom GitHub Copilot)', note:'Active today', active:true},
+      {name:'Dev Agent — Python (custom GitHub Copilot)', note:'Active today', active:true},
+      {name:'Code Review Agent (custom GitHub Copilot)', note:'In progress', active:false},
+    ],
+    produces:['Implementation plan → Jira or ephemeral','Code + unit/component tests → repo','Test results manifest → Xray via API'],
+    consumes:['JIRA-####-requirements.md','JIRA-####-testplan-bsa.md','architecture.md (optional)','security-controls.md (optional)'],
+    aiMoments:[
+      'Plan agent: requirements + BSA testplan → structured implementation plan',
+      'Dev agent: plan → code + unit/component tests against TC-IDs',
+      'Code review agent: triggered on demand before QA handoff',
+      'Copilot inline: boilerplate, pattern repetition, complex logic (SA-CCR, CVA)',
+    ]
+  },
+  { id:'qa', title:'QA / QE Engineer', abbr:'QA/QE', ...C.qa,
+    tools:[
+      {name:'GitHub Copilot in VS Code', note:'Claude + GPT via model picker', active:true},
+      {name:'QA Agent (custom GitHub Copilot)', note:'In progress', active:false},
+    ],
+    produces:['QA test cases → Xray (QA01, QA02…)','Test execution results → Xray','Requirements Gap Report → BSA','Prod sign-off'],
+    consumes:['JIRA-####-requirements.md','JIRA-####-testplan-bsa.md','Dev agent output','JIRA-####-test-results-manifest.json'],
+    aiMoments:[
+      'QA agent: reviews BSA requirements + testplan → gap analysis + regression impact',
+      'QA agent: identifies which existing Xray cases a new requirement touches',
+      'Human QA: writes testplan-qa.md informed by agent analysis',
+      'Human QA: executes MANUAL_REQUIRED cases from manifest, signs off before prod',
+    ]
+  },
+  { id:'prod', title:'Prod Support', abbr:'Prod', ...C.prod,
+    tools:[
+      {name:'M365 Copilot', note:'Primary now — runbooks, playbooks', active:true},
+      {name:'GitHub Copilot in VS Code', note:'Roadmap — troubleshooting, log analysis, dashboards', active:false},
+    ],
+    produces:['Runbooks','Alert playbooks','Operability Review → Dev'],
+    consumes:['JIRA-####-requirements.md','JIRA-####-plan.md','JIRA-####-testplan-bsa.md'],
+    aiMoments:[
+      'M365 Copilot: draft runbooks + alert playbooks from artifact chain',
+      'Operability review: surface monitoring/rollback gaps before release',
+      '(Roadmap) GitHub Copilot: log analysis, incident troubleshooting',
+      '(Roadmap) GitHub Copilot: dashboard and metrics generation',
+    ]
+  },
+];
+
+const agents = [
+  { id:'bsa',  name:'BSA Agent',              active:true,  color:'#54B848', platform:'GitHub Copilot · VS Code',                   desc:'Converts meeting notes, emails, and stakeholder input into structured requirements and JIRA-ID test cases.', inputs:'Meeting notes, emails, regulatory text',                             outputs:'JIRA-####-requirements.md, JIRA-####-testplan-bsa.md' },
+  { id:'plan', name:'Plan Agent',              active:true,  color:'#2563EB', platform:'GitHub Copilot · VS Code',                   desc:'Translates requirements + BSA testplan into a structured implementation plan. Creates output files directly.', inputs:'requirements.md, testplan-bsa.md, architecture.md*, security-controls.md*', outputs:'JIRA-####-plan.md' },
+  { id:'fe',   name:'Dev Agent — Frontend',    active:true,  color:'#2563EB', platform:'GitHub Copilot · VS Code',                   desc:'Implements frontend features from the plan. Generates unit and component tests against BSA TC-IDs. Emits results manifest.', inputs:'JIRA-####-plan.md, testplan-bsa.md',                              outputs:'Code, unit/component tests, test-results-manifest.json' },
+  { id:'py',   name:'Dev Agent — Python',      active:true,  color:'#2563EB', platform:'GitHub Copilot · VS Code',                   desc:'Implements Python/backend features from the plan. Same output contract as the Frontend agent.',                  inputs:'JIRA-####-plan.md, testplan-bsa.md',                              outputs:'Code, unit/component tests, test-results-manifest.json' },
+  { id:'reg',  name:'Regulatory / Compliance', active:false, color:'#7C3AED', platform:'GitHub Copilot · VS Code',                   desc:'Produces and maintains security-controls.md for the shared reference library.',                                   inputs:'Regulatory source docs, OSFI guidelines, internal security policies', outputs:'security-controls.md (reference library)' },
+  { id:'arch', name:'Solution Architect Agent',active:false, color:'#7C3AED', platform:'GitHub Copilot · VS Code',                   desc:'Translates requirements into physical/logical architecture. Maintains architecture.md reference doc.',                inputs:'Requirements, system context, existing architecture',                outputs:'architecture.md (reference library)' },
+  { id:'qa',   name:'QA Agent',                active:false, color:'#EA580C', platform:'GitHub Copilot · VS Code',                   desc:'Finds gaps in BSA test cases. Analyzes regression and E2E impact of new requirements on existing Xray suite.',      inputs:'requirements.md, testplan-bsa.md, Xray suite context',               outputs:'Requirements Gap Report, regression impact analysis' },
+  { id:'cr',   name:'Code Review Agent',       active:false, color:'#2563EB', platform:'GitHub Copilot · VS Code · Dev-triggered',   desc:'Reviews dev agent output for performance, security vulnerabilities, and risk. Dev triggers on demand before QA.',   inputs:'Code output from dev agent',                                         outputs:'Code review findings — dev resolves before QA' },
+];
+
+const workflowSteps = [
+  { step:1, role:'BSA',  color:'#54B848', title:'BSA creates requirements + testplan',       desc:'BSA agent converts meeting notes/emails into structured requirements and functional test cases with JIRA-ID naming.',                                          files:['JIRA-####-requirements.md','JIRA-####-testplan-bsa.md'],                          agent:'BSA Agent' },
+  { step:2, role:'Dev',  color:'#2563EB', title:'Planning agent builds implementation plan', desc:'Consumes requirements + BSA testplan. Optional arch/security reference docs pulled in if the feature warrants it.',                                             files:['JIRA-####-plan.md'], optional:['architecture.md (opt)','security-controls.md (opt)'], agent:'Plan Agent' },
+  { step:3, role:'Dev',  color:'#2563EB', title:'Dev agent implements + generates tests',    desc:'Frontend or Python dev agent implements the feature and generates unit/component tests against BSA TC-IDs. Emits results manifest.',                             files:['Code','Unit/component tests','JIRA-####-test-results-manifest.json'],             agent:'Dev Agent (FE or Python)' },
+  { step:4, role:'Dev',  color:'#7C3AED', title:'Code review agent — dev triggered',         desc:'Dev triggers on demand, like a peer code review. Reviews for performance, security, and risk. Dev resolves all findings before handing to QA.',                 files:['Code review output'],                                                             agent:'Code Review Agent' },
+  { step:5, role:'QA',   color:'#EA580C', title:'QA agent gap analysis + QA writes testplan','desc':'QA agent reviews BSA requirements + testplan to surface gaps and regression/E2E impact. Human QA uses this to write testplan-qa.md.',                          files:['JIRA-####-testplan-qa.md','Requirements Gap Report'],                             agent:'QA Agent + Human QA' },
+  { step:6, role:'QA',   color:'#EA580C', title:'Manifest → Xray + manual test execution',   desc:'Results manifest pushed to Xray via API. MANUAL_REQUIRED cases executed by human QA. Full sign-off before release.',                                           files:['Xray test results','QA sign-off'],                                                agent:'Xray API + Human QA' },
+  { step:7, role:'Prod', color:'#7C3AED', title:'Prod Support creates runbooks + playbooks', desc:'M365 Copilot used to draft runbooks and alert playbooks from the full artifact chain. Operability review fed back to Dev.',                                      files:['Runbook','Alert playbooks','Operability Review'],                                 agent:'M365 Copilot' },
+];
+
+// Render roles
+const rc = document.getElementById('roles-container');
+roles.forEach(r => {
+  const d = document.createElement('div');
+  d.className = 'role-accordion';
+  d.innerHTML = `
+    <button class="role-header" onclick="toggleRole('${r.id}')">
+      <div class="role-header-left">
+        <div class="role-badge" style="color:${r.color};border-color:${r.color};background:${r.dim}">${r.abbr}</div>
+        <div class="role-title">${r.title}</div>
+      </div>
+      <span class="role-toggle" id="toggle-${r.id}" style="color:${r.color}">+</span>
+    </button>
+    <div class="role-body" id="body-${r.id}">
+      <div class="grid-2">
+        <div>
+          <div class="role-section-label">TOOLS</div>
+          ${r.tools.map(t=>`<div class="role-item"><span style="color:${r.color}">◆</span><span>${t.name}<span style="color:var(--text-dim);font-size:11px;"> — ${t.note}</span>${!t.active?'<span class="roadmap-pill">roadmap</span>':''}</span></div>`).join('')}
+        </div>
+        <div>
+          <div class="role-section-label">PRODUCES</div>
+          ${r.produces.map(p=>`<div class="role-item"><span style="color:${r.color}">→</span><span style="font-family:'DM Mono',monospace;font-size:11px;">${p}</span></div>`).join('')}
+          <div class="role-section-label" style="margin-top:12px">CONSUMES</div>
+          ${r.consumes.map(c=>`<div class="role-item"><span style="color:var(--text-dim)">←</span><span style="color:var(--text-muted);font-family:'DM Mono',monospace;font-size:11px;">${c}</span></div>`).join('')}
+        </div>
+        <div style="grid-column:1/-1">
+          <div class="role-section-label">TOP AI MOMENTS</div>
+          <div class="grid-2">${r.aiMoments.map(m=>`<div class="role-ai-item" style="border-left-color:${r.color}">${m}</div>`).join('')}</div>
+        </div>
+      </div>
+    </div>`;
+  rc.appendChild(d);
+});
+
+// Render agents
+agents.forEach(a => {
+  const d = document.createElement('div');
+  d.className = 'agent-card';
+  d.style.borderTopColor = a.color;
+  d.innerHTML = `
+    <div class="agent-name" style="color:${a.color}">${a.name}${a.active?'<span class="active-pill">active</span>':'<span class="roadmap-pill">in progress</span>'}</div>
+    <div class="agent-platform">${a.platform}</div>
+    <div class="agent-desc">${a.desc}</div>
+    <div class="agent-io">
+      <div class="agent-io-row"><span class="agent-io-label" style="color:${a.color}">IN</span><span class="agent-io-val">${a.inputs}</span></div>
+      <div class="agent-io-row"><span class="agent-io-label" style="color:${a.color}">OUT</span><span class="agent-io-val">${a.outputs}</span></div>
+    </div>`;
+  document.getElementById(a.active ? 'active-agents' : 'inprogress-agents').appendChild(d);
+});
+
+// Render workflow
+const wc = document.getElementById('workflow-container');
+workflowSteps.forEach((s,i) => {
+  const d = document.createElement('div');
+  d.className = 'workflow-step';
+  const optChips = (s.optional||[]).map(f=>`<span class="file-chip optional">${f}</span>`).join('');
+  const reqChips = (s.files||[]).map(f=>`<span class="file-chip">${f}</span>`).join('');
+  d.innerHTML = `
+    <div class="step-line" style="background:${i<workflowSteps.length-1?s.color:'transparent'}"></div>
+    <div class="step-card" style="border-left-color:${s.color}">
+      <div class="step-num">0${s.step}</div>
+      <div class="step-role-badge" style="color:${s.color};border-color:${s.color};background:${s.color}18">${s.role}</div>
+      <div class="step-content">
+        <div class="step-title" style="color:${s.color}">${s.title}</div>
+        <div class="step-desc">${s.desc}</div>
+        <div class="step-files">${reqChips}${optChips}</div>
+      </div>
+      <div class="step-agent">${s.agent}</div>
+    </div>`;
+  wc.appendChild(d);
+});
+
+function setTab(i) {
+  document.querySelectorAll('.section').forEach((s,j)=>s.classList.toggle('active',i===j));
+  document.querySelectorAll('.nav button').forEach((b,j)=>b.classList.toggle('active',i===j));
+}
+
+function toggleRole(id) {
+  const body = document.getElementById('body-'+id);
+  const toggle = document.getElementById('toggle-'+id);
+  const acc = body.closest('.role-accordion');
+  const open = body.classList.contains('open');
+  body.classList.toggle('open',!open);
+  acc.classList.toggle('open',!open);
+  toggle.textContent = open ? '+' : '−';
+}
+
+const maturityData = [
+  {label:'Ad Hoc',         color:'#dc2626', next:'Deploy templates + tool access. Pick one champion per role to pilot.'},
+  {label:'Enabled',        color:'#b45309', next:'Activate the agent chain on 2–3 tickets. Run your first chain retro.'},
+  {label:'Compound',       color:'#54B848', next:'Instrument metrics. Champions lead retros. ROI reported to leadership quarterly.'},
+  {label:'Self-Improving', color:'#003F2D', next:null},
+];
+function setMaturity(level) {
+  document.querySelectorAll('.maturity-btn').forEach((b,i) => {
+    const m = maturityData[i];
+    b.classList.toggle('active', i===level);
+    b.style.borderColor  = i===level ? m.color : '';
+    b.style.background   = i===level ? m.color+'18' : '';
+    b.querySelector('.maturity-level-title').style.color = i===level ? m.color : '';
+  });
+  const el = document.getElementById('maturity-next');
+  if (level < 3) {
+    el.innerHTML = `<span style="color:${maturityData[level+1].color};font-weight:600">↑ Next level (${maturityData[level+1].label}):</span> ${maturityData[level].next}`;
+  } else {
+    el.innerHTML = `<span style="color:var(--td-green);font-weight:600">✓ Operating at full maturity.</span> Focus: sustain, document, and share the model across other teams.`;
+  }
+}
+</script>
+</body>
+</html>
